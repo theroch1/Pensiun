@@ -5,20 +5,26 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec"; 
 
 let allPegawaiData = []; // Menyimpan master data dari server
-let selectedPegawai = null; // Menyimpan data pegawai yang dipilih untuk SK
+let currentFilteredData = []; // Menyimpan data yang sedang difilter (untuk kebutuhan Export Excel)
+let selectedPegawai = null;
 let modalSKInstance = null;
 let modalUserInstance = null;
 
 // Inisialisasi Aplikasi saat DOM Selesai Dimuat
 document.addEventListener("DOMContentLoaded", () => {
-  // Inisialisasi Modal Bootstrap jika elemennya tersedia
+  // Load Pustaka SheetJS (XLSX) secara dinamis untuk fitur Export Excel
+  if (typeof XLSX === "undefined") {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    document.head.appendChild(script);
+  }
+
   const modalSKEl = document.getElementById("modalSK");
   const modalUserEl = document.getElementById("modalUser");
   
   if (modalSKEl) modalSKInstance = new bootstrap.Modal(modalSKEl);
   if (modalUserEl) modalUserInstance = new bootstrap.Modal(modalUserEl);
 
-  // Cek Status Auth Token
   const token = localStorage.getItem("token");
   if (token) {
     showDashboard();
@@ -34,10 +40,7 @@ async function doLogin() {
   const elUser = document.getElementById("username");
   const elPass = document.getElementById("password");
 
-  if (!elUser || !elPass) {
-    alert("Elemen input username/password tidak ditemukan!");
-    return;
-  }
+  if (!elUser || !elPass) return;
 
   const usernameInput = elUser.value.trim();
   const passwordInput = elPass.value.trim();
@@ -125,7 +128,7 @@ function showSection(sectionName) {
 async function loadDataPegawai() {
   const token = localStorage.getItem("token");
   const tbody = document.getElementById("tbodyPegawai");
-  tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat 3000+ data pegawai...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat 3000+ data pegawai...</td></tr>`;
 
   try {
     const response = await fetch(`${API_URL}?action=getDaftarPensiun&token=${encodeURIComponent(token)}`, { redirect: "follow" });
@@ -142,11 +145,11 @@ async function loadDataPegawai() {
       updateStatistikCard(allPegawaiData);
       applyFilter();
     } else {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Gagal memuat data: ${res.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat data: ${res.message}</td></tr>`;
     }
   } catch (err) {
     console.error("Error load data:", err);
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Gagal memuat data pegawai. Hubungkan jaringan/Apps Script. (${err.message})</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat data pegawai. Hubungkan jaringan/Apps Script. (${err.message})</td></tr>`;
   }
 }
 
@@ -159,7 +162,6 @@ function updateStatistikCard(dataList) {
     else if (item.kategoriPensiun === "Belum Pensiun") aman++;
   });
 
-  // Tampilkan Total Keseluruhan Data Pegawai
   document.getElementById("statTotal").innerText = dataList.length;
   document.getElementById("statKritis").innerText = kritis;
   document.getElementById("statWarning").innerText = warning;
@@ -169,25 +171,22 @@ function updateStatistikCard(dataList) {
 function applyFilter() {
   const keyword = document.getElementById("filterSearch").value.toLowerCase();
   const selectedJenis = document.getElementById("filterJenisPegawai").value;
-  const selectedTmtMonth = document.getElementById("filterTmtMonth").value; // Format nilainya: "YYYY-MM"
+  const selectedTmtMonth = document.getElementById("filterTmtMonth").value;
 
-  const filtered = allPegawaiData.filter(item => {
+  currentFilteredData = allPegawaiData.filter(item => {
     const nip = item.nip ? String(item.nip).toLowerCase() : "";
     const nama = item.nama ? String(item.nama).toLowerCase() : "";
+    const pd = item.perangkatDaerah ? String(item.perangkatDaerah).toLowerCase() : "";
     
-    // 1. Filter Cari NIP / Nama
-    const matchSearch = nip.includes(keyword) || nama.includes(keyword);
-    
-    // 2. Filter Jenis Pegawai
+    // Filter Pencarian (NIP, Nama, atau Perangkat Daerah)
+    const matchSearch = nip.includes(keyword) || nama.includes(keyword) || pd.includes(keyword);
     const matchJenis = (selectedJenis === "ALL") || (item.jenisPegawai === selectedJenis);
-    
-    // 3. Filter TMT Pensiun (Pilih Oktober 2026 -> Otomatis cocok dengan pegawai Ultah September + BUP)
     const matchTmt = (!selectedTmtMonth) || (item.filterTmtKey === selectedTmtMonth);
 
     return matchSearch && matchJenis && matchTmt;
   });
 
-  renderTablePegawai(filtered);
+  renderTablePegawai(currentFilteredData);
 }
 
 function resetFilter() {
@@ -202,11 +201,10 @@ function renderTablePegawai(dataList) {
   tbody.innerHTML = "";
 
   if (dataList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Tidak ada data pegawai yang sesuai dengan filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Tidak ada data pegawai yang sesuai dengan filter.</td></tr>`;
     return;
   }
 
-  // Render Baris Data (Menggunakan HTML String Concatenation untuk Peforma Cepat)
   let htmlRows = "";
   dataList.forEach(item => {
     let badgeClass = "bg-secondary";
@@ -219,6 +217,7 @@ function renderTablePegawai(dataList) {
       <tr>
         <td><strong>${item.nip}</strong></td>
         <td>${item.nama}</td>
+        <td><small class="text-muted fw-bold">${item.perangkatDaerah || "-"}</small></td>
         <td><span class="badge bg-info text-dark">${item.jenisPegawai} (BUP ${item.bup})</span></td>
         <td>${item.tglLahir}</td>
         <td><strong class="text-primary">${item.tmtPensiun}</strong></td>
@@ -236,6 +235,47 @@ function renderTablePegawai(dataList) {
 }
 
 // =================================================================
+// EKSOPRT KE EXCEL (UNTUK SURAT PEMBERITAHUAN SE)
+// =================================================================
+function exportToExcel() {
+  if (!currentFilteredData || currentFilteredData.length === 0) {
+    alert("Tidak ada data untuk di-download!");
+    return;
+  }
+
+  if (typeof XLSX === "undefined") {
+    alert("Pustaka Excel belum siap. Silakan coba 2 detik lagi.");
+    return;
+  }
+
+  // Format data yang rapi untuk lampiran surat pemberitahuan
+  const dataExport = currentFilteredData.map((item, index) => ({
+    "No": index + 1,
+    "NIP": `'${item.nip}`, // Tanda petik agar angka NIP tidak terpotong di Excel
+    "Nama Pegawai": item.nama,
+    "Perangkat Daerah / Unit Kerja": item.perangkatDaerah,
+    "Jenis Pegawai": item.jenisPegawai,
+    "BUP": item.bup,
+    "Tanggal Lahir": item.tglLahir,
+    "TMT Awal Kerja": item.tmtAwalKerja,
+    "TMT Pensiun": item.tmtPensiun,
+    "Status Pensiun": item.kategoriPensiun
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(dataExport);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Daftar Pensiun");
+
+  // Ambil label filter bulan TMT jika ada
+  const filterMonth = document.getElementById("filterTmtMonth").value;
+  const fileName = filterMonth 
+    ? `Daftar_Pegawai_Pensiun_TMT_${filterMonth}.xlsx` 
+    : `Daftar_Pegawai_Pensiun_${new Date().toISOString().slice(0,10)}.xlsx`;
+
+  XLSX.writeFile(workbook, fileName);
+}
+
+// =================================================================
 // PROSES SK & CEK GOOGLE FORM
 // =================================================================
 function openModalSK(nip) {
@@ -247,7 +287,6 @@ function openModalSK(nip) {
   document.getElementById("skJenisPegawai").innerText = selectedPegawai.jenisPegawai;
   document.getElementById("skTmtPensiun").innerText = selectedPegawai.tmtPensiun;
 
-  // Pre-fill input TMT Berhenti secara otomatis
   const inputTmtBerhenti = document.getElementById("skTmtBerhenti");
   if (inputTmtBerhenti) {
     inputTmtBerhenti.value = selectedPegawai.tmtPensiun !== "-" ? selectedPegawai.tmtPensiun : "";
