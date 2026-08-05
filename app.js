@@ -1,6 +1,7 @@
 // =================================================================
 // KONFIGURASI UTAMA
 // =================================================================
+// Ganti URL di bawah dengan Web App URL dari Deployment Google Apps Script Anda
 const API_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec"; 
 
 let allPegawaiData = []; // Menyimpan master data dari server
@@ -8,11 +9,16 @@ let selectedPegawai = null; // Menyimpan data pegawai yang dipilih untuk SK
 let modalSKInstance = null;
 let modalUserInstance = null;
 
-// Inisialisasi Aplikasi
+// Inisialisasi Aplikasi saat DOM Selesai Dimuat
 document.addEventListener("DOMContentLoaded", () => {
-  modalSKInstance = new bootstrap.Modal(document.getElementById("modalSK"));
-  modalUserInstance = new bootstrap.Modal(document.getElementById("modalUser"));
+  // Inisialisasi Modal Bootstrap jika elemennya tersedia
+  const modalSKEl = document.getElementById("modalSK");
+  const modalUserEl = document.getElementById("modalUser");
+  
+  if (modalSKEl) modalSKInstance = new bootstrap.Modal(modalSKEl);
+  if (modalUserEl) modalUserInstance = new bootstrap.Modal(modalUserEl);
 
+  // Cek Status Auth Token
   const token = localStorage.getItem("token");
   if (token) {
     showDashboard();
@@ -29,7 +35,7 @@ async function doLogin() {
   const elPass = document.getElementById("password");
 
   if (!elUser || !elPass) {
-    alert("Elemen input username/password tidak ditemukan di HTML!");
+    alert("Elemen input username/password tidak ditemukan!");
     return;
   }
 
@@ -37,7 +43,7 @@ async function doLogin() {
   const passwordInput = elPass.value.trim();
 
   if (!usernameInput || !passwordInput) {
-    alert("Username dan password harus diisi!");
+    alert("Username dan password wajib diisi!");
     return;
   }
 
@@ -85,7 +91,11 @@ function showLogin() {
 function showDashboard() {
   document.getElementById("loginSection").classList.add("d-none");
   document.getElementById("dashboardSection").classList.remove("d-none");
-  document.getElementById("userDisplay").innerText = localStorage.getItem("username") || "Admin";
+  
+  const userDisp = document.getElementById("userDisplay");
+  if (userDisp) {
+    userDisp.innerText = localStorage.getItem("username") || "Admin";
+  }
   
   loadDataPegawai();
 }
@@ -115,7 +125,7 @@ function showSection(sectionName) {
 async function loadDataPegawai() {
   const token = localStorage.getItem("token");
   const tbody = document.getElementById("tbodyPegawai");
-  tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat data pegawai...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat 3000+ data pegawai...</td></tr>`;
 
   try {
     const response = await fetch(`${API_URL}?action=getDaftarPensiun&token=${encodeURIComponent(token)}`, { redirect: "follow" });
@@ -128,15 +138,15 @@ async function loadDataPegawai() {
     }
 
     if (res.status === "success") {
-      allPegawaiData = res.data;
+      allPegawaiData = res.data || [];
       updateStatistikCard(allPegawaiData);
       applyFilter();
     } else {
-      alert("Gagal memuat data: " + res.message);
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Gagal memuat data: ${res.message}</td></tr>`;
     }
   } catch (err) {
     console.error("Error load data:", err);
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Gagal memuat data pegawai. Hubungkan ke jaringan/Apps Script.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Gagal memuat data pegawai. Hubungkan jaringan/Apps Script. (${err.message})</td></tr>`;
   }
 }
 
@@ -144,11 +154,12 @@ function updateStatistikCard(dataList) {
   let kritis = 0, warning = 0, aman = 0;
   
   dataList.forEach(item => {
-    if (item.kategoriPensiun.includes("≤ 2 Bulan")) kritis++;
-    else if (item.kategoriPensiun.includes("≤ 6 Bulan")) warning++;
+    if (item.kategoriPensiun && item.kategoriPensiun.includes("≤ 2 Bulan")) kritis++;
+    else if (item.kategoriPensiun && item.kategoriPensiun.includes("≤ 6 Bulan")) warning++;
     else if (item.kategoriPensiun === "Belum Pensiun") aman++;
   });
 
+  // Tampilkan Total Keseluruhan Data Pegawai
   document.getElementById("statTotal").innerText = dataList.length;
   document.getElementById("statKritis").innerText = kritis;
   document.getElementById("statWarning").innerText = warning;
@@ -158,16 +169,19 @@ function updateStatistikCard(dataList) {
 function applyFilter() {
   const keyword = document.getElementById("filterSearch").value.toLowerCase();
   const selectedJenis = document.getElementById("filterJenisPegawai").value;
-  const selectedTmtMonth = document.getElementById("filterTmtMonth").value; // Format: "YYYY-MM"
+  const selectedTmtMonth = document.getElementById("filterTmtMonth").value; // Format nilainya: "YYYY-MM"
 
   const filtered = allPegawaiData.filter(item => {
-    // 1. Filter Text NIP / Nama
-    const matchSearch = item.nip.toLowerCase().includes(keyword) || item.nama.toLowerCase().includes(keyword);
+    const nip = item.nip ? String(item.nip).toLowerCase() : "";
+    const nama = item.nama ? String(item.nama).toLowerCase() : "";
+    
+    // 1. Filter Cari NIP / Nama
+    const matchSearch = nip.includes(keyword) || nama.includes(keyword);
     
     // 2. Filter Jenis Pegawai
     const matchJenis = (selectedJenis === "ALL") || (item.jenisPegawai === selectedJenis);
     
-    // 3. Filter TMT Pensiun (Pilih Oktober 2026 -> Otomatis mencocokkan pegawai ulang tahun September + BUP)
+    // 3. Filter TMT Pensiun (Pilih Oktober 2026 -> Otomatis cocok dengan pegawai Ultah September + BUP)
     const matchTmt = (!selectedTmtMonth) || (item.filterTmtKey === selectedTmtMonth);
 
     return matchSearch && matchJenis && matchTmt;
@@ -192,13 +206,16 @@ function renderTablePegawai(dataList) {
     return;
   }
 
+  // Render Baris Data (Menggunakan HTML String Concatenation untuk Peforma Cepat)
+  let htmlRows = "";
   dataList.forEach(item => {
     let badgeClass = "bg-secondary";
     if (item.kategoriPensiun.includes("≤ 2 Bulan")) badgeClass = "bg-danger";
     else if (item.kategoriPensiun.includes("≤ 6 Bulan")) badgeClass = "bg-warning text-dark";
     else if (item.kategoriPensiun === "Belum Pensiun") badgeClass = "bg-success";
+    else if (item.kategoriPensiun === "Data Tanggal Tidak Valid") badgeClass = "bg-dark";
 
-    const row = `
+    htmlRows += `
       <tr>
         <td><strong>${item.nip}</strong></td>
         <td>${item.nama}</td>
@@ -213,15 +230,16 @@ function renderTablePegawai(dataList) {
         </td>
       </tr>
     `;
-    tbody.innerHTML += row;
   });
+
+  tbody.innerHTML = htmlRows;
 }
 
 // =================================================================
 // PROSES SK & CEK GOOGLE FORM
 // =================================================================
 function openModalSK(nip) {
-  selectedPegawai = allPegawaiData.find(p => p.nip === nip);
+  selectedPegawai = allPegawaiData.find(p => String(p.nip) === String(nip));
   if (!selectedPegawai) return;
 
   document.getElementById("skNip").innerText = selectedPegawai.nip;
@@ -229,15 +247,21 @@ function openModalSK(nip) {
   document.getElementById("skJenisPegawai").innerText = selectedPegawai.jenisPegawai;
   document.getElementById("skTmtPensiun").innerText = selectedPegawai.tmtPensiun;
 
-  // Pre-fill Tanggal TMT Berhenti secara otomatis sesuai TMT Pensiun
-  document.getElementById("skTmtBerhenti").value = selectedPegawai.tmtPensiun;
+  // Pre-fill input TMT Berhenti secara otomatis
+  const inputTmtBerhenti = document.getElementById("skTmtBerhenti");
+  if (inputTmtBerhenti) {
+    inputTmtBerhenti.value = selectedPegawai.tmtPensiun !== "-" ? selectedPegawai.tmtPensiun : "";
+  }
 
   document.getElementById("formSK").reset();
-  document.getElementById("skTmtBerhenti").value = selectedPegawai.tmtPensiun; // Setel ulang setelah reset
+  if (inputTmtBerhenti) {
+    inputTmtBerhenti.value = selectedPegawai.tmtPensiun !== "-" ? selectedPegawai.tmtPensiun : "";
+  }
+  
   document.getElementById("alertBerkas").classList.add("d-none");
 
   cekBerkasForm();
-  modalSKInstance.show();
+  if (modalSKInstance) modalSKInstance.show();
 }
 
 async function cekBerkasForm() {
@@ -317,7 +341,7 @@ async function submitGenerateSK() {
   };
 
   if (!payload.nomorSk || !payload.tanggalSk || !payload.tmtBerhenti || !payload.gajiPokok) {
-    alert("Harap lengkapi semua kolom input formulir!");
+    alert("Harap lengkapi seluruh field formulir yang dibutuhkan!");
     return;
   }
 
@@ -336,14 +360,14 @@ async function submitGenerateSK() {
 
     if (res.status === "success") {
       alert("SK Berhasil Diterbitkan!");
-      modalSKInstance.hide();
+      if (modalSKInstance) modalSKInstance.hide();
       window.open(res.pdfUrl, "_blank");
     } else {
       alert("Gagal menerbitkan SK: " + res.message);
     }
   } catch (err) {
     console.error("Generate SK Error:", err);
-    alert("Terjadi kesalahan sistem saat membuat SK.");
+    alert("Terjadi kesalahan sistem saat memproses PDF SK.");
   } finally {
     btnSubmit.disabled = false;
     btnSubmit.innerHTML = `<i class="bi bi-printer-fill me-1"></i> Terbitkan PDF SK`;
@@ -386,7 +410,7 @@ async function submitTambahUser() {
   const newPassword = document.getElementById("newPassword").value.trim();
 
   if (!newUsername || !newPassword) {
-    alert("Username dan password tidak boleh kosong!");
+    alert("Username dan password baru tidak boleh kosong!");
     return;
   }
 
@@ -409,14 +433,12 @@ async function submitTambahUser() {
     if (res.status === "success") {
       alert(res.message);
       document.getElementById("formTambahUser").reset();
-      modalUserInstance.hide();
+      if (modalUserInstance) modalUserInstance.hide();
       loadDaftarUser();
     } else {
       alert("Gagal menambah user: " + res.message);
     }
   } catch (err) {
-    alert("Terjadi kesalahan jaringan.");
+    alert("Terjadi kesalahan koneksi saat menambah admin.");
   }
 }
-
-
