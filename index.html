@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Manajemen SK Pensiun</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-light">
+
+<!-- LOGIN CONTAINER -->
+<div id="loginSection" class="container mt-5" style="max-width: 400px;">
+  <div class="card shadow">
+    <div class="card-body p-4">
+      <h4 class="text-center mb-3">Login Pengelola</h4>
+      <div class="mb-3">
+        <label>Username</label>
+        <input type="text" id="loginUser" class="form-control" value="admin">
+      </div>
+      <div class="mb-3">
+        <label>Password</label>
+        <input type="password" id="loginPass" class="form-control" value="admin123">
+      </div>
+      <button onclick="doLogin()" class="btn btn-primary w-100">Masuk Aplikasi</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN DASHBOARD -->
+<div id="mainDashboard" class="container mt-4" style="display: none;">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Monitoring Pensiun (H-2 Bulan)</h2>
+    <button onclick="logout()" class="btn btn-outline-danger btn-sm">Logout</button>
+  </div>
+
+  <!-- TABLE DAFTAR PENSIUN -->
+  <div class="card shadow mb-4">
+    <div class="card-body">
+      <table class="table table-hover align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>NIP / NI PPPK</th>
+            <th>Nama Pegawai</th>
+            <th>Jenis Pegawai</th>
+            <th>Estimasi Pensiun</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tabelPensiunBody">
+          <!-- Render Via JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MENU DYNAMIC VARIABLE -->
+  <div class="card shadow mb-5">
+    <div class="card-header bg-secondary text-white">
+      <b>+ Tambah Variabel Isian Custom SK</b>
+    </div>
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <input type="text" id="newVarLabel" class="form-control" placeholder="Nama Label (ex: No Taspen)">
+        </div>
+        <div class="col-md-3">
+          <input type="text" id="newVarTag" class="form-control" placeholder="Tag Doc (ex: {{NO_TASPEN}})">
+        </div>
+        <div class="col-md-3">
+          <select id="newVarJenis" class="form-control">
+            <option value="SEMUA">Semua Jenis Pemberhentian</option>
+            <option value="BUP">BUP Sahaja</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button onclick="tambahVariable()" class="btn btn-success w-100">Simpan Field Baru</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FORM PROSES SK -->
+<div class="modal fade" id="modalSK" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Form Penerbitan SK Pensiun</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formProsesSK">
+          <input type="hidden" id="skNip">
+          <input type="hidden" id="skTmtAwal">
+          
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label><b>Nama Pegawai:</b></label>
+              <input type="text" id="skNama" class="form-control" readonly>
+            </div>
+            <div class="col-md-6">
+              <label><b>Jenis Pegawai:</b></label>
+              <select id="skJenisPegawai" class="form-control">
+                <option value="PPPK">PPPK (Penuh Waktu)</option>
+                <option value="PPPK_PARUH_WAKTU">PPPK Paruh Waktu</option>
+                <option value="PNS">PNS</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label><b>Jenis Pemberhentian:</b></label>
+              <select id="skJenisPemberhentian" class="form-control" onchange="toggleKondisionalInput()">
+                <option value="BUP">BUP / Selesai Perjanjian</option>
+                <option value="APS">Atas Permintaan Sendiri (Mundur)</option>
+                <option value="MENINGGAL">Meninggal Dunia</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label><b>TMT Berhenti / Pensiun:</b></label>
+              <input type="date" id="skTmtBerhenti" class="form-control" required>
+            </div>
+          </div>
+
+          <!-- Mandatory Pertek BKN -->
+          <div class="row mb-3 p-2 bg-light border rounded">
+            <div class="col-md-6">
+              <label><b>Nomor Pertek BKN:</b></label>
+              <input type="text" id="skNoPertek" class="form-control" placeholder="Nomor Pertek" required>
+            </div>
+            <div class="col-md-6">
+              <label><b>Tanggal Pertek BKN:</b></label>
+              <input type="date" id="skTglPertek" class="form-control" required>
+            </div>
+          </div>
+
+          <!-- Dynamic Conditional Input -->
+          <div id="groupMeninggal" class="mb-3" style="display:none;">
+            <label><b>Nomor Akta / Surat Keterangan Kematian:</b></label>
+            <input type="text" id="skNoAkta" class="form-control" placeholder="No Akta Kematian">
+          </div>
+
+          <div id="groupAPS" class="mb-3" style="display:none;">
+            <label><b>Surat Permohonan Pengunduran Diri (APS):</b></label>
+            <input type="text" id="skSuratAPS" class="form-control" placeholder="Contoh: Surat Tanggal 10 Juli 2026">
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label><b>Nomor SK Pensiun:</b></label>
+              <input type="text" id="skNomor" class="form-control" placeholder="Nomor SK" required>
+            </div>
+            <div class="col-md-6">
+              <label><b>Tanggal Terbit SK:</b></label>
+              <input type="date" id="skTglTerbit" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label><b>Gaji Pokok Terakhir (Rp):</b></label>
+              <input type="number" id="skGaji" class="form-control" placeholder="Gaji Pokok" required>
+            </div>
+            <div class="col-md-6">
+              <label><b>Alamat Pensiun:</b></label>
+              <input type="text" id="skAlamat" class="form-control" placeholder="Alamat Lengkap" required>
+            </div>
+          </div>
+
+          <!-- Dynamic Fields Container -->
+          <hr>
+          <h6><b>Field Tambahan Dinamis:</b></h6>
+          <div id="dynamicContainer"></div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="button" onclick="submitGenerateSK()" class="btn btn-primary">Generate & Terbitkan SK (PDF)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
