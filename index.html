@@ -18,9 +18,9 @@
 </head>
 <body>
 
-  <!-- halaman LOGIN -->
-  <div id="loginSection" class="container d-flex justify-content-center align-items-center style-login min-vh-100">
-    <div class="card shadow-lg p-4 style-card-login" style="max-width: 400px; width: 100%; border-radius: 12px;">
+  <!-- HALAMAN LOGIN -->
+  <div id="loginSection" class="container d-flex justify-content-center align-items-center min-vh-100">
+    <div class="card shadow-lg p-4" style="max-width: 400px; width: 100%; border-radius: 12px;">
       <div class="text-center mb-4">
         <i class="bi bi-shield-lock-fill text-primary display-4"></i>
         <h4 class="mt-2 font-weight-bold">Login Pengelola</h4>
@@ -42,7 +42,7 @@
     </div>
   </div>
 
-  <!-- HALAMAN DASHBOARD MAIN (Hidden by default) -->
+  <!-- HALAMAN DASHBOARD (Hidden by Default) -->
   <div id="dashboardSection" class="d-none">
     <div class="container-fluid">
       <div class="row">
@@ -75,19 +75,19 @@
           </div>
         </nav>
 
-        <!-- Main Content Area -->
+        <!-- Main Content -->
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
           
           <!-- SECTION DATA PEGAWAI & FILTERS -->
           <div id="sectionPegawai">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-              <h1 class="h2">Daftar Pegawai & Status Pensiun</h1>
+              <h1 class="h2">Daftar Pegawai & TMT Pensiun</h1>
               <button class="btn btn-outline-primary btn-sm" onclick="loadDataPegawai()">
                 <i class="bi bi-arrow-clockwise me-1"></i> Refresh Data
               </button>
             </div>
 
-            <!-- Ringkasan Kartu Statistik -->
+            <!-- Kartu Ringkasan Statistik -->
             <div class="row mb-4">
               <div class="col-md-3">
                 <div class="card card-stat bg-primary text-white p-3 shadow-sm">
@@ -115,16 +115,19 @@
               </div>
             </div>
 
-            <!-- Card Controls & Filters -->
+            <!-- Area Filter Data -->
             <div class="card shadow-sm mb-4">
               <div class="card-body">
                 <div class="row g-3">
-                  <div class="col-md-4">
+                  <!-- Cari NIP / Nama -->
+                  <div class="col-md-3">
                     <label class="form-label fw-bold">Cari NIP / Nama</label>
                     <input type="text" id="filterSearch" class="form-control" placeholder="Ketik NIP atau Nama..." onkeyup="applyFilter()">
                   </div>
-                  <div class="col-md-4">
-                    <label class="form-label fw-bold">Filter Jenis Pegawai</label>
+
+                  <!-- Filter Jenis Pegawai -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-bold">Jenis Pegawai</label>
                     <select id="filterJenisPegawai" class="form-select" onchange="applyFilter()">
                       <option value="ALL">Semua Jenis Pegawai</option>
                       <option value="PNS">PNS</option>
@@ -132,21 +135,24 @@
                       <option value="PPPK_PARUH_WAKTU">PPPK Paruh Waktu</option>
                     </select>
                   </div>
-                  <div class="col-md-4">
-                    <label class="form-label fw-bold">Filter Status Pensiun</label>
-                    <select id="filterKategoriPensiun" class="form-select" onchange="applyFilter()">
-                      <option value="ALL">Semua Status</option>
-                      <option value="Mendekati Pensiun (≤ 2 Bulan)">Mendekati Pensiun (≤ 2 Bulan)</option>
-                      <option value="Pensiun Tahun Ini (≤ 6 Bulan)">Pensiun Tahun Ini (≤ 6 Bulan)</option>
-                      <option value="Belum Pensiun">Belum Pensiun</option>
-                      <option value="Sudah Pensiun">Sudah Pensiun</option>
-                    </select>
+
+                  <!-- FILTER TMT PENSIUN (Bulan & Tahun) -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-bold">Filter TMT Pensiun</label>
+                    <input type="month" id="filterTmtMonth" class="form-control" onchange="applyFilter()">
+                  </div>
+
+                  <!-- Reset Filter -->
+                  <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary w-100" onclick="resetFilter()">
+                      <i class="bi bi-x-circle me-1"></i> Reset Filter
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Data Table -->
+            <!-- Tabel Data -->
             <div class="card shadow-sm">
               <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -154,9 +160,9 @@
                     <tr>
                       <th>NIP</th>
                       <th>Nama</th>
-                      <th>Jenis Pegawai</th>
-                      <th>TMT Awal</th>
-                      <th>Est. Pensiun</th>
+                      <th>Jenis & BUP</th>
+                      <th>Tgl Lahir</th>
+                      <th>TMT Pensiun</th>
                       <th>Status Pensiun</th>
                       <th class="text-center">Aksi</th>
                     </tr>
@@ -203,17 +209,17 @@
         </div>
         <div class="modal-body">
           <form id="formSK">
-            <!-- Informasi Pegawai Terpilih -->
+            <!-- Info Pegawai -->
             <div class="alert alert-secondary mb-3">
               <div class="row">
                 <div class="col-md-6"><strong>NIP:</strong> <span id="skNip">-</span></div>
                 <div class="col-md-6"><strong>Nama:</strong> <span id="skNama">-</span></div>
                 <div class="col-md-6 mt-1"><strong>Jenis Pegawai:</strong> <span id="skJenisPegawai">-</span></div>
-                <div class="col-md-6 mt-1"><strong>TMT Awal:</strong> <span id="skTmtAwal">-</span></div>
+                <div class="col-md-6 mt-1"><strong>TMT Pensiun:</strong> <span id="skTmtPensiun" class="text-primary fw-bold">-</span></div>
               </div>
             </div>
 
-            <!-- Pilih Jenis Pemberhentian & Pengecekan Berkas -->
+            <!-- Pilih Jenis Pemberhentian & Cek Berkas -->
             <div class="row g-3 mb-3">
               <div class="col-md-6">
                 <label class="form-label fw-bold">Jenis Pemberhentian</label>
@@ -230,14 +236,14 @@
               </div>
             </div>
 
-            <!-- Feedback Pengecekan Berkas Form -->
+            <!-- Alert Kelengkapan Berkas -->
             <div id="alertBerkas" class="alert alert-warning d-none" role="alert">
               Status Berkas: <strong id="statusBerkasPesan">-</strong>
             </div>
 
             <hr>
 
-            <!-- Parameter Form Dokumen SK -->
+            <!-- Field Input SK -->
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Nomor SK</label>
@@ -269,7 +275,7 @@
               </div>
             </div>
 
-            <!-- Variabel Dinamis Tambahan (Tergantung Jenis Pemberhentian) -->
+            <!-- Field Dinamis Tambahan -->
             <div id="extraFields" class="mt-3"></div>
           </form>
         </div>
@@ -313,8 +319,9 @@
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/bootstrap.bundle.min.js"></script>
-  <!-- Application JS Script -->
+  <!-- Application JS -->
   <script src="app.js"></script>
 </body>
 </html>
+
 
