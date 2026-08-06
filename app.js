@@ -1,6 +1,7 @@
 // =============================================================================
 // KONFIGURASI WEB APP
 // =============================================================================
+// GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec";
 
 let globalPegawaiList = [];
@@ -349,3 +350,4 @@ async function handleGenerateSkSubmit(e) {
     if (spinner) spinner.classList.add("d-none");
   }
 }
+
