@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistem Manajemen Pensiun & SK Pegawai</title>
-  <!-- Bootstrap 5 CSS & Icons -->
+  <title>Sistem Manajemen Pensiun & SK PPPK</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <style>
@@ -45,10 +44,9 @@
 
   <!-- DASHBOARD SECTION -->
   <div id="dashboardSection" class="d-none">
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
       <div class="container-fluid">
-        <a class="navbar-brand fw-bold" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>SIM-PENSIUN</a>
+        <a class="navbar-brand fw-bold" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>SIM-PENSIUN PPPK</a>
         <div class="d-flex align-items-center">
           <span class="text-white me-3"><i class="bi bi-person-circle me-1"></i><span id="userDisplay">Admin</span></span>
           <button class="btn btn-outline-light btn-sm" onclick="doLogout()"><i class="bi bi-power me-1"></i>Keluar</button>
@@ -57,7 +55,6 @@
     </nav>
 
     <div class="container-fluid py-4">
-      <!-- Menu Tab -->
       <ul class="nav nav-pills mb-4">
         <li class="nav-item">
           <a id="menuPegawai" class="nav-link active fw-bold" href="#" onclick="showSection('pegawai')"><i class="bi bi-people me-1"></i>Data Pensiun Pegawai</a>
@@ -69,7 +66,6 @@
 
       <!-- SECTION PEGAWAI -->
       <div id="sectionPegawai">
-        <!-- Card Statistik -->
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <div class="card card-stat card-total shadow-sm">
@@ -105,16 +101,15 @@
           </div>
         </div>
 
-        <!-- Filter & Tombol Download Excel -->
         <div class="card shadow-sm border-0 mb-4">
           <div class="card-body">
             <div class="row g-2 align-items-end">
               <div class="col-md-3">
-                <label class="form-label fw-bold">Cari NIP / Nama / Perangkat Daerah</label>
-                <input type="text" id="filterSearch" class="form-control" placeholder="Cari data..." oninput="applyFilter()">
+                <label class="form-label fw-bold">Cari NIP / Nama / Perangkat / Jabatan</label>
+                <input type="text" id="filterSearch" class="form-control" placeholder="Ketik kata kunci..." oninput="applyFilter()">
               </div>
-              <div class="col-md-3">
-                <label class="form-label fw-bold">Filter Jenis Pegawai</label>
+              <div class="col-md-2">
+                <label class="form-label fw-bold">Jenis Pegawai</label>
                 <select id="filterJenisPegawai" class="form-select" onchange="applyFilter()">
                   <option value="ALL">-- Semua Jenis --</option>
                   <option value="PNS">PNS</option>
@@ -122,8 +117,16 @@
                   <option value="PPPK Penuh Waktu">PPPK Penuh Waktu</option>
                 </select>
               </div>
-              <div class="col-md-3">
-                <label class="form-label fw-bold">Filter TMT Pensiun (Bulan/Tahun)</label>
+              <div class="col-md-2">
+                <label class="form-label fw-bold">Status Proses SK</label>
+                <select id="filterStatusSk" class="form-select" onchange="applyFilter()">
+                  <option value="ALL">-- Semua Status SK --</option>
+                  <option value="SUDAH">Sudah Diproses SK</option>
+                  <option value="BELUM">Belum Diproses SK</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label fw-bold">TMT Pensiun</label>
                 <input type="month" id="filterTmtMonth" class="form-control" onchange="applyFilter()">
               </div>
               <div class="col-md-3 d-flex gap-2">
@@ -144,15 +147,17 @@
                     <th>NIP</th>
                     <th>Nama</th>
                     <th>Perangkat Daerah</th>
+                    <th>Jabatan</th>
                     <th>Jenis & BUP</th>
-                    <th>Tgl Lahir</th>
+                    <th>TMT Kerja</th>
                     <th>TMT Pensiun</th>
-                    <th>Status</th>
+                    <th>Masa Kerja</th>
+                    <th>Status SK</th>
                     <th class="text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyPegawai">
-                  <tr><td colspan="8" class="text-center py-4 text-muted">Silakan tunggu, memuat data...</td></tr>
+                  <tr><td colspan="10" class="text-center py-4 text-muted">Silakan tunggu, memuat data...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -182,20 +187,18 @@
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title fw-bold"><i class="bi bi-gear-fill me-2"></i>Proses Penerbitan SK</h5>
+          <h5 class="modal-title fw-bold"><i class="bi bi-gear-fill me-2"></i>Proses Penerbitan SK Pemberhentian PPPK</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div id="alertBerkas" class="alert d-none">
-            <span id="statusBerkasPesan"></span>
-          </div>
-
           <div class="bg-light p-3 rounded mb-3">
-            <div class="row">
+            <div class="row g-2">
               <div class="col-md-6"><strong>NIP:</strong> <span id="skNip">-</span></div>
               <div class="col-md-6"><strong>Nama:</strong> <span id="skNama">-</span></div>
-              <div class="col-md-6"><strong>Jenis:</strong> <span id="skJenisPegawai">-</span></div>
-              <div class="col-md-6"><strong>TMT Pensiun:</strong> <span id="skTmtPensiun">-</span></div>
+              <div class="col-md-6"><strong>Perangkat Daerah:</strong> <span id="skPerangkatDaerah">-</span></div>
+              <div class="col-md-6"><strong>Jabatan:</strong> <span id="skJabatan">-</span></div>
+              <div class="col-md-6"><strong>Jenis Pegawai:</strong> <span id="skJenisPegawai">-</span></div>
+              <div class="col-md-6"><strong>TMT Pensiun BUP:</strong> <span id="skTmtPensiun">-</span></div>
             </div>
           </div>
 
@@ -203,16 +206,31 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label fw-bold">Jenis Pemberhentian</label>
-                <select id="skJenisPemberhentian" class="form-select" onchange="cekBerkasForm()">
+                <select id="skJenisPemberhentian" class="form-select" onchange="onJenisPemberhentianChange()">
                   <option value="BUP">BUP (Batas Usia Pensiun)</option>
+                  <option value="HMPK">Habis Masa Perjanjian Kerja</option>
                   <option value="MENINGGAL">Meninggal Dunia</option>
                   <option value="APS">Atas Permintaan Sendiri (APS)</option>
+                  <option value="DISIPLIN">Hukuman Disiplin</option>
                 </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-bold">TMT Berhenti</label>
+                <label class="form-label fw-bold">TMT Berhenti / Pensiun</label>
                 <input type="date" id="skTmtBerhenti" class="form-control" required>
               </div>
+
+              <!-- FORM MASA KERJA TAHUN & BULAN -->
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Masa Kerja (Tahun & Bulan)</label>
+                <div class="input-group">
+                  <input type="number" id="skMasaKerjaTahun" class="form-control" placeholder="0" required>
+                  <span class="input-group-text">Tahun</span>
+                  <input type="number" id="skMasaKerjaBulan" class="form-control" placeholder="0" required>
+                  <span class="input-group-text">Bulan</span>
+                </div>
+                <small class="text-muted">*Dihitung otomatis dari TMT Awal s.d. Usia BUP</small>
+              </div>
+
               <div class="col-md-6">
                 <label class="form-label fw-bold">Nomor SK</label>
                 <input type="text" id="skNomor" class="form-control" placeholder="Contoh: 800/123/2026" required>
@@ -223,7 +241,7 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-bold">Gaji Pokok Terakhir (Rp)</label>
-                <input type="number" id="skGajiPokok" class="form-control" placeholder="Contoh: 4500000" required>
+                <input type="number" id="skGajiPokok" class="form-control" placeholder="Contoh: 3500000" required>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-bold">Nomor Pertek BKN</label>
@@ -233,17 +251,20 @@
                 <label class="form-label fw-bold">Tanggal Pertek BKN</label>
                 <input type="date" id="skTanggalPertek" class="form-control">
               </div>
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Alamat Pensiun</label>
+              <div class="col-md-12">
+                <label class="form-label fw-bold">Alamat Pensiun / Domisili</label>
                 <input type="text" id="skAlamat" class="form-control" placeholder="Alamat lengkap">
               </div>
             </div>
-            <div id="extraFields" class="mt-3"></div>
+
+            <div id="dynamicFields" class="row g-3 mt-1"></div>
           </form>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-          <button type="button" id="btnSubmitSK" class="btn btn-primary" onclick="submitGenerateSK()"><i class="bi bi-printer-fill me-1"></i> Terbitkan PDF SK</button>
+          <button type="button" id="btnSubmitSK" class="btn btn-primary" onclick="submitGenerateSK()">
+            <i class="bi bi-printer-fill me-1"></i> Terbitkan SK (PDF)
+          </button>
         </div>
       </div>
     </div>
@@ -277,9 +298,7 @@
     </div>
   </div>
 
-  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Load JS Aplikasi Anda -->
   <script src="app.js"></script>
 </body>
 </html>
