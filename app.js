@@ -1,7 +1,6 @@
 // =============================================================================
 // KONFIGURASI WEB APP
 // =============================================================================
-// GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec";
 
 let globalPegawaiList = [];
@@ -16,11 +15,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", handleLoginSubmit);
 
-  const btnRefresh = document.getElementById("btnRefresh");
-  if (btnRefresh) btnRefresh.addEventListener("click", fetchPegawaiData);
-
   const skForm = document.getElementById("generateSkForm");
   if (skForm) skForm.addEventListener("submit", handleGenerateSkSubmit);
+
+  const addUserForm = document.getElementById("addUserForm");
+  if (addUserForm) addUserForm.addEventListener("submit", handleAddUserSubmit);
 });
 
 // =============================================================================
@@ -28,15 +27,15 @@ document.addEventListener("DOMContentLoaded", () => {
 // =============================================================================
 function checkAuthStatus() {
   const loginSection = document.getElementById("loginSection");
-  const dashboardSection = document.getElementById("dashboardSection");
+  const mainDashboard = document.getElementById("mainDashboard");
 
   if (currentToken) {
     if (loginSection) loginSection.classList.add("d-none");
-    if (dashboardSection) dashboardSection.classList.remove("d-none");
-    fetchPegawaiData();
+    if (mainDashboard) mainDashboard.classList.remove("d-none");
+    loadPegawaiData();
   } else {
     if (loginSection) loginSection.classList.remove("d-none");
-    if (dashboardSection) dashboardSection.classList.add("d-none");
+    if (mainDashboard) mainDashboard.classList.add("d-none");
   }
 }
 
@@ -64,6 +63,7 @@ async function handleLoginSubmit(e) {
     if (result.status === "success") {
       currentToken = result.token;
       localStorage.setItem("app_token", result.token);
+      document.getElementById("userDisplay").textContent = result.username || "Admin";
       checkAuthStatus();
     } else {
       if (alertBox) {
@@ -90,9 +90,9 @@ function handleLogout() {
 }
 
 // =============================================================================
-// FETCH & RENDER DATA PEGAWAI
+// FETCH & RENDER DATA PEGAWAI & STATISTIK
 // =============================================================================
-async function fetchPegawaiData() {
+async function loadPegawaiData() {
   const tbody = document.getElementById("pegawaiTbody");
   if (tbody) {
     tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Memuat data pegawai...</td></tr>';
@@ -112,6 +112,7 @@ async function fetchPegawaiData() {
 
     if (result.status === "success") {
       globalPegawaiList = Array.isArray(result.data) ? result.data : [];
+      updateStatistics(globalPegawaiList);
       renderPegawaiTable(globalPegawaiList);
     } else {
       if (result.message && result.message.includes("Sesi")) {
@@ -126,6 +127,41 @@ async function fetchPegawaiData() {
       tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-danger">Gagal memuat data dari server: ${err.message}</td></tr>`;
     }
   }
+}
+
+function updateStatistics(data) {
+  const totalPegawai = data.length;
+  let pensiunTahunIni = 0;
+  let pensiun2Bulan = 0;
+  let sudahSkCount = 0;
+
+  const currentYear = new Date().getFullYear();
+  const now = new Date();
+
+  data.forEach(p => {
+    if (p.skPdfUrl && String(p.skPdfUrl).trim() !== "") {
+      sudahSkCount++;
+    }
+    if (p.tmtPensiun && p.tmtPensiun !== "-") {
+      const dtPensiun = parseAnyDate(p.tmtPensiun);
+      if (dtPensiun && !isNaN(dtPensiun.getTime())) {
+        if (dtPensiun.getFullYear() === currentYear) {
+          pensiunTahunIni++;
+        }
+        // Cek selisih 2 bulan ke depan
+        const diffTime = dtPensiun - now;
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        if (diffDays >= 0 && diffDays <= 60) {
+          pensiun2Bulan++;
+        }
+      }
+    }
+  });
+
+  document.getElementById("statTotalPegawai").textContent = totalPegawai;
+  document.getElementById("statPensiun2Bulan").textContent = pensiun2Bulan;
+  document.getElementById("statPensiunTahunIni").textContent = pensiunTahunIni;
+  document.getElementById("statSisaPegawai").textContent = totalPegawai - sudahSkCount;
 }
 
 function renderPegawaiTable(data) {
@@ -177,6 +213,86 @@ function renderPegawaiTable(data) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// =============================================================================
+// FILTER & EXPORT
+// =============================================================================
+function applyFilters() {
+  const keyword = document.getElementById("filterSearch").value.toLowerCase();
+  const filterTmt = document.getElementById("filterTmtPensiun").value;
+  const filterStatus = document.getElementById("filterStatusSk").value;
+
+  const filtered = globalPegawaiList.filter(p => {
+    const matchKeyword = (p.nip && p.nip.toLowerCase().includes(keyword)) || 
+                         (p.nama && p.nama.toLowerCase().includes(keyword));
+    
+    const matchTmt = !filterTmt || p.tmtPensiun === filterTmt;
+
+    const isSudahSk = p.skPdfUrl && String(p.skPdfUrl).trim() !== "";
+    let matchStatus = true;
+    if (filterStatus === "SUDAH") matchStatus = isSudahSk;
+    if (filterStatus === "BELUM") matchStatus = !isSudahSk;
+
+    return matchKeyword && matchTmt && matchStatus;
+  });
+
+  renderPegawaiTable(filtered);
+}
+
+function resetFilters() {
+  document.getElementById("filterSearch").value = "";
+  document.getElementById("filterTmtPensiun").value = "";
+  document.getElementById("filterStatusSk").value = "";
+  renderPegawaiTable(globalPegawaiList);
+}
+
+function exportToExcel() {
+  let csvContent = "data:text/csv;charset=utf-8,";
+  csvContent += "No,NIP,Nama,Jabatan,Jenis Pegawai,Tanggal Lahir,TMT Pensiun,Status SK\r\n";
+
+  globalPegawaiList.forEach((p, idx) => {
+    const status = (p.skPdfUrl && String(p.skPdfUrl).trim() !== "") ? "Sudah SK" : "Belum SK";
+    const row = [idx + 1, `"${p.nip}"`, `"${p.nama}"`, `"${p.jabatan}"`, `"${p.jenisPegawai}"`, `"${p.tanggalLahir}"`, `"${p.tmtPensiun}"`, `"${status}"`];
+    csvContent += row.join(",") + "\r\n";
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "data_pegawai_pensiun.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// =============================================================================
+// TAMBAH USER
+// =============================================================================
+async function handleAddUserSubmit(e) {
+  e.preventDefault();
+  const username = document.getElementById("newUsername").value;
+  const password = document.getElementById("newPassword").value;
+
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "addUser",
+        token: currentToken,
+        username: username,
+        password: password
+      })
+    });
+    const result = await response.json();
+    alert(result.message);
+    if (result.status === "success") {
+      document.getElementById("addUserForm").reset();
+    }
+  } catch (err) {
+    alert("Gagal menambah user: " + err.message);
+  }
 }
 
 // =============================================================================
@@ -247,7 +363,7 @@ function formatDateIndoStr(dateStr) {
 }
 
 // =============================================================================
-// MODAL & SUBMIT SK
+// MODAL & SUBMIT SK (Sinkron dengan ID skModal di HTML)
 // =============================================================================
 function openGenerateModalByNip(nip) {
   const pegawai = globalPegawaiList.find(p => String(p.nip).trim() === String(nip).trim());
@@ -272,7 +388,7 @@ function openGenerateModalByNip(nip) {
   setVal("modalPerangkatDaerah", pegawai.perangkatDaerah || "");
   setVal("modalTanggalLahir", toIsoDateStr(tglLahirVal));
   setVal("modalTanggalUlangTahunBup", toIsoDateStr(tglUlangTahunBup));
-  setVal("modalTmtBerhenti", toIsoDateStr(tmtPensiunVal));
+  setVal("modalTmtPensiun", toIsoDateStr(tmtPensiunVal));
   setVal("modalMasaKerjaTahun", pegawai.masaKerjaTahun || 0);
   setVal("modalMasaKerjaBulan", pegawai.masaKerjaBulan || 0);
   setVal("modalNomorSk", "");
@@ -282,7 +398,7 @@ function openGenerateModalByNip(nip) {
   setVal("modalGajiPokok", "0");
   setVal("modalAlamat", pegawai.alamat || "");
 
-  const modalElem = document.getElementById("generateSkModal");
+  const modalElem = document.getElementById("skModal");
   if (modalElem) {
     const bsModal = new bootstrap.Modal(modalElem);
     bsModal.show();
@@ -292,12 +408,6 @@ function openGenerateModalByNip(nip) {
 async function handleGenerateSkSubmit(e) {
   e.preventDefault();
   
-  const btnSubmit = document.getElementById("btnSubmitSk");
-  const spinner = document.getElementById("spinnerSk");
-  
-  if (btnSubmit) btnSubmit.disabled = true;
-  if (spinner) spinner.classList.remove("d-none");
-
   const getVal = (id) => {
     const elem = document.getElementById(id);
     return elem ? elem.value : "";
@@ -313,8 +423,8 @@ async function handleGenerateSkSubmit(e) {
     perangkatDaerah: getVal("modalPerangkatDaerah"),
     tanggalLahir: getVal("modalTanggalLahir"),
     tanggalUlangTahunBup: getVal("modalTanggalUlangTahunBup"),
-    tmtBerhenti: getVal("modalTmtBerhenti"),
-    jenisPemberhentian: getVal("modalJenisPemberhentian") || "BUP (Batas Usia Pensiun)",
+    tmtBerhenti: getVal("modalTmtPensiun"),
+    jenisPemberhentian: getVal("modalJenisPemberhentian") || "BUP",
     nomorSk: getVal("modalNomorSk"),
     tanggalSk: getVal("modalTanggalSk"),
     nomorPertek: getVal("modalNomorPertek"),
@@ -336,18 +446,16 @@ async function handleGenerateSkSubmit(e) {
 
     if (result.status === "success") {
       alert("SK Berhasil Dibuat!\n\nLink PDF: " + result.pdfUrl);
-      const modalElem = document.getElementById("generateSkModal");
+      const modalElem = document.getElementById("skModal");
       const bsModal = bootstrap.Modal.getInstance(modalElem);
       if (bsModal) bsModal.hide();
-      fetchPegawaiData();
+      loadPegawaiData();
     } else {
       alert("Gagal membuat SK: " + (result.message || "Terjadi kesalahan server."));
     }
   } catch (err) {
     alert("Terjadi kesalahan koneksi: " + err.message);
-  } finally {
-    if (btnSubmit) btnSubmit.disabled = false;
-    if (spinner) spinner.classList.add("d-none");
   }
 }
+
 
