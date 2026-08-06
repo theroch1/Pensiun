@@ -138,11 +138,9 @@ async function fetchPegawaiData() {
 function parseAnyDate(dateStr) {
   if (!dateStr || dateStr === "-" || dateStr === "") return null;
 
-  // Coba parse bawaan JS Date
   var dt = new Date(dateStr);
   if (!isNaN(dt.getTime())) return dt;
 
-  // Map nama bulan Indonesia dan Inggris
   var monthsMap = {
     january: 0, januari: 0, jan: 0,
     february: 1, februari: 1, feb: 1,
@@ -190,7 +188,6 @@ function calculateBupBirthday(tanggalLahir, tmtPensiun) {
     var dtPensiun = parseAnyDate(tmtPensiun);
     if (dtPensiun && !isNaN(dtPensiun.getTime())) {
       targetYear = dtPensiun.getFullYear();
-      // Jika TMT Pensiun 1 Januari, maka Ulang Tahun BUP jatuh pada bulan Desember tahun sebelumnya
       if (dtPensiun.getDate() === 1 && dtPensiun.getMonth() === 0 && dtLahir.getMonth() === 11) {
         targetYear = dtPensiun.getFullYear() - 1;
       }
@@ -278,23 +275,26 @@ function openGenerateModalByNip(nip) {
     return;
   }
 
-  // Isi data ke Form Modal Generate SK
+  const tglLahirVal = pegawai.tanggalLahir || "";
+  const tmtPensiunVal = pegawai.tmtPensiun || "";
+  const tglUlangTahunBup = calculateBupBirthday(tglLahirVal, tmtPensiunVal);
+
   document.getElementById("modalNip").value = pegawai.nip || "";
   document.getElementById("modalNama").value = pegawai.nama || "";
   document.getElementById("modalJabatan").value = pegawai.jabatan || "";
   document.getElementById("modalJenisPegawai").value = pegawai.jenisPegawai || "";
   document.getElementById("modalPerangkatDaerah").value = pegawai.perangkatDaerah || "";
-  document.getElementById("modalTanggalLahir").value = pegawai.tanggalLahir || "";
-  document.getElementById("modalTmtBerhenti").value = pegawai.tmtPensiun || "";
+  document.getElementById("modalTanggalLahir").value = tglLahirVal;
+  document.getElementById("modalTmtBerhenti").value = tmtPensiunVal;
   
-  // Tanggal Ulang Tahun BUP
-  const tglUlangTahunBup = calculateBupBirthday(pegawai.tanggalLahir, pegawai.tmtPensiun);
-  document.getElementById("modalTanggalUlangTahunBup").value = tglUlangTahunBup;
+  const elemBup = document.getElementById("modalTanggalUlangTahunBup");
+  if (elemBup) {
+    elemBup.value = tglUlangTahunBup;
+  }
 
   document.getElementById("modalMasaKerjaTahun").value = pegawai.masaKerjaTahun || 0;
   document.getElementById("modalMasaKerjaBulan").value = pegawai.masaKerjaBulan || 0;
 
-  // Reset Input Pilihan Tambahan SK
   if (document.getElementById("modalNomorSk")) document.getElementById("modalNomorSk").value = "";
   if (document.getElementById("modalTanggalSk")) document.getElementById("modalTanggalSk").value = new Date().toISOString().split('T')[0];
   if (document.getElementById("modalNomorPertek")) document.getElementById("modalNomorPertek").value = "";
@@ -302,7 +302,6 @@ function openGenerateModalByNip(nip) {
   if (document.getElementById("modalGajiPokok")) document.getElementById("modalGajiPokok").value = "";
   if (document.getElementById("modalAlamat")) document.getElementById("modalAlamat").value = "";
 
-  // Tampilkan Modal Bootstrap
   const modalElem = document.getElementById("generateSkModal");
   if (modalElem) {
     const bsModal = new bootstrap.Modal(modalElem);
@@ -319,7 +318,6 @@ async function handleGenerateSkSubmit(e) {
   if (btnSubmit) btnSubmit.disabled = true;
   if (spinner) spinner.classList.remove("d-none");
 
-  // Ambil Nilai dari Form
   const jenisPegawaiVal = document.getElementById("modalJenisPegawai").value;
   const jenisPemberhentianVal = document.getElementById("modalJenisPemberhentian") ? 
                                 document.getElementById("modalJenisPemberhentian").value : "BUP";
@@ -333,7 +331,8 @@ async function handleGenerateSkSubmit(e) {
     jenisPegawai: jenisPegawaiVal,
     perangkatDaerah: document.getElementById("modalPerangkatDaerah").value,
     tanggalLahir: document.getElementById("modalTanggalLahir").value,
-    tanggalUlangTahunBup: document.getElementById("modalTanggalUlangTahunBup").value,
+    tanggalUlangTahunBup: document.getElementById("modalTanggalUlangTahunBup") ? 
+                          document.getElementById("modalTanggalUlangTahunBup").value : "",
     tmtBerhenti: document.getElementById("modalTmtBerhenti").value,
     jenisPemberhentian: jenisPemberhentianVal,
     nomorSk: document.getElementById("modalNomorSk").value,
@@ -358,12 +357,10 @@ async function handleGenerateSkSubmit(e) {
     if (result.status === "success") {
       alert("SK Berhasil Dibuat!\n\nLink PDF: " + result.pdfUrl);
       
-      // Sembunyikan Modal
       const modalElem = document.getElementById("generateSkModal");
       const bsModal = bootstrap.Modal.getInstance(modalElem);
       if (bsModal) bsModal.hide();
 
-      // Refresh Data Tabel
       fetchPegawaiData();
     } else {
       alert("Gagal membuat SK: " + (result.message || "Terjadi kesalahan server."));
