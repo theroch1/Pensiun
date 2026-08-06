@@ -452,6 +452,7 @@ async function handleGenerateSkSubmit(e) {
     nip: getVal("modalNip"),
     nama: getVal("modalNama"),
     jabatan: getVal("modalJabatan"),
+    golongan: getVal("modalGolongan"),
     jenisPegawai: getVal("modalJenisPegawai"),
     perangkatDaerah: getVal("modalPerangkatDaerah"),
     tanggalLahir: getVal("modalTanggalLahir"),
