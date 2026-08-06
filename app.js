@@ -361,14 +361,91 @@ async function handleGenerateSkSubmit(e) {
       const bsModal = bootstrap.Modal.getInstance(modalElem);
       if (bsModal) bsModal.hide();
 
-      fetchPegawaiData();
+     async function fetchPegawaiData() {
+  const tbody = document.getElementById("pegawaiTbody");
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Memuat data pegawai...</td></tr>';
+  }
+
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "getPegawai",
+        token: currentToken
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.status === "success") {
+      globalPegawaiList = Array.isArray(result.data) ? result.data : [];
+      renderPegawaiTable(globalPegawaiList);
     } else {
-      alert("Gagal membuat SK: " + (result.message || "Terjadi kesalahan server."));
+      if (result.message && result.message.includes("Sesi")) {
+        handleLogout();
+        return;
+      }
+      alert(result.message || "Gagal mengambil data pegawai.");
     }
   } catch (err) {
-    alert("Terjadi kesalahan koneksi: " + err.message);
-  } finally {
-    if (btnSubmit) btnSubmit.disabled = false;
-    if (spinner) spinner.classList.add("d-none");
+    console.error("Error fetching pegawai:", err);
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-danger">Gagal memuat data dari server: ${err.message}</td></tr>`;
+    }
   }
+}
+
+function renderPegawaiTable(data) {
+  const tbody = document.getElementById("pegawaiTbody");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">Tidak ada data pegawai yang ditemukan di Google Sheet.</td></tr>';
+    return;
+  }
+
+  data.forEach((p, index) => {
+    // Proteksi data undefined/null
+    const nipVal = p.nip || "-";
+    const namaVal = p.nama || "-";
+    const jabatanVal = p.jabatan || "-";
+    const jenisPegawaiVal = p.jenisPegawai || "-";
+    const tglLahirVal = p.tanggalLahir || "-";
+    const tmtPensiunVal = p.tmtPensiun || "-";
+    
+    // Kalkulasi Ulang Tahun BUP
+    const tglUlangTahunBup = calculateBupBirthday(tglLahirVal, tmtPensiunVal);
+
+    let statusSkBadge = "";
+    if (p.skPdfUrl && String(p.skPdfUrl).trim() !== "") {
+      statusSkBadge = `<span class="badge bg-success">Sudah SK</span> 
+                       <a href="${p.skPdfUrl}" target="_blank" class="btn btn-sm btn-outline-success ms-1" title="Lihat PDF SK"><i class="bi bi-file-pdf"></i> PDF</a>`;
+    } else {
+      statusSkBadge = `<span class="badge bg-warning text-dark">Belum SK</span>`;
+    }
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${nipVal}</td>
+      <td><strong>${namaVal}</strong></td>
+      <td>${jabatanVal}</td>
+      <td>${jenisPegawaiVal}</td>
+      <td>${formatDateIndoStr(tglLahirVal)}</td>
+      <td class="text-primary fw-bold">${formatDateIndoStr(tglUlangTahunBup)}</td>
+      <td><strong>${formatDateIndoStr(tmtPensiunVal)}</strong></td>
+      <td>${p.masaKerjaTahun || 0} Thn ${p.masaKerjaBulan || 0} Bln</td>
+      <td class="text-center">${statusSkBadge}</td>
+      <td class="text-center">
+        <button class="btn btn-sm btn-primary" onclick="openGenerateModalByNip('${nipVal}')">
+          Generate SK
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
