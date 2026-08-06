@@ -417,6 +417,7 @@ function openGenerateModalByNip(nip) {
   setVal("modalNip", pegawai.nip || "");
   setVal("modalNama", pegawai.nama || "");
   setVal("modalJabatan", pegawai.jabatan || "");
+  setVal("modalGolongan", pegawai.golongan || "");
   setVal("modalJenisPegawai", pegawai.jenisPegawai || "");
   setVal("modalPerangkatDaerah", pegawai.perangkatDaerah || "");
   setVal("modalTanggalLahir", toIsoDateStr(tglLahirVal));
