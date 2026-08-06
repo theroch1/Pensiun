@@ -3,367 +3,236 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistem Layanan SK Pensiun & Pemberhentian Pegawai</title>
-
+  <title>Sistem Pelayanan SK Pegawai</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <style>
     body {
       background-color: #f8f9fa;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    .navbar-brand {
-      font-weight: 700;
-      letter-spacing: 0.5px;
-    }
-    .card-stat {
-      border: none;
-      border-radius: 10px;
-      transition: transform 0.2s;
-    }
-    .card-stat:hover {
-      transform: translateY(-3px);
-    }
-    .table-responsive {
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .badge-bup {
-      font-size: 0.8rem;
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
     }
   </style>
 </head>
 <body>
 
-  <!-- NAVBAR HEADER -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-    <div class="container-fluid px-4">
-      <a class="navbar-brand d-flex align-items-center" href="#">
-        <i class="bi bi-file-earmark-pdf-fill me-2 fs-4"></i>
-        <span>e-SK Pensiun & Pemberhentian</span>
-      </a>
-      
-      <div class="d-flex align-items-center" id="navUserMenu">
-        <span class="text-white me-3 d-none d-md-inline">
-          <i class="bi bi-person-circle me-1"></i> <strong id="userDisplay">-</strong>
-        </span>
-        <button class="btn btn-outline-light btn-sm" onclick="doLogout()">
-          <i class="bi bi-box-arrow-right me-1"></i> Keluar
-        </button>
-      </div>
-    </div>
-  </nav>
+  <!-- LOADING OVERLAY -->
+  <div id="loadingOverlay" class="loading-overlay d-none">
+    <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+    <h5 id="loadingText">Memproses...</h5>
+  </div>
 
-  <div class="container-fluid px-4 py-4">
-
-    <!-- LOGIN SECTION -->
-    <div id="loginSection" class="row justify-content-center py-5 d-none">
+  <!-- SECTION LOGIN -->
+  <div id="loginSection" class="container mt-5">
+    <div class="row justify-content-center">
       <div class="col-md-4">
-        <div class="card shadow-lg border-0 rounded-4">
-          <div class="card-body p-4 text-center">
-            <div class="mb-3 text-primary">
-              <i class="bi bi-shield-lock-fill display-3"></i>
-            </div>
-            <h4 class="fw-bold mb-1">Masuk Portal</h4>
-            <p class="text-muted small mb-4">Silakan login dengan akun administrator Anda</p>
-            
-            <div class="form-floating mb-3 text-start">
-              <input type="text" class="form-control" id="username" placeholder="Username">
-              <label for="username">Username</label>
-            </div>
-            <div class="form-floating mb-4 text-start">
-              <input type="password" class="form-control" id="password" placeholder="Password">
-              <label for="password">Password</label>
-            </div>
-
-            <button id="btnLogin" class="btn btn-primary w-100 py-2 fw-bold" onclick="doLogin()">
-              <i class="bi bi-box-arrow-in-right me-1"></i> Masuk
-            </button>
+        <div class="card shadow-sm">
+          <div class="card-header bg-primary text-white text-center py-3">
+            <h4 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Login Sistem</h4>
+          </div>
+          <div class="card-body p-4">
+            <div id="loginAlert" class="alert alert-danger d-none" role="alert"></div>
+            <form id="loginForm">
+              <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" required autocomplete="username">
+              </div>
+              <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" required autocomplete="current-password">
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Login</button>
+            </form>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- DASHBOARD SECTION -->
-    <div id="dashboardSection" class="d-none">
-
-      <!-- Navigation Tab Admin -->
-      <ul class="nav nav-pills mb-4">
-        <li class="nav-item">
-          <button class="nav-link active fw-semibold" id="menuPegawai" onclick="showSection('pegawai')">
-            <i class="bi bi-people-fill me-1"></i> Data Pegawai & SK
-          </button>
-        </li>
-        <li class="nav-item">
-          <button class="nav-link fw-semibold" id="menuUser" onclick="showSection('user')">
-            <i class="bi bi-person-gear me-1"></i> Kelola Admin
-          </button>
-        </li>
-      </ul>
-
-      <!-- SUB-SECTION: PEGAWAI -->
-      <div id="sectionPegawai">
-        
-        <!-- Cards Stats -->
-        <div class="row g-3 mb-4">
-          <div class="col-md-3">
-            <div class="card card-stat bg-white shadow-sm p-3 border-start border-4 border-primary">
-              <div class="text-muted small fw-bold">TOTAL PEGAWAI TERDATA</div>
-              <div class="h3 fw-bold text-primary mb-0" id="statTotal">0</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card card-stat bg-white shadow-sm p-3 border-start border-4 border-danger">
-              <div class="text-muted small fw-bold">PENSIUN KRITIS (&le; 2 BULAN)</div>
-              <div class="h3 fw-bold text-danger mb-0" id="statKritis">0</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card card-stat bg-white shadow-sm p-3 border-start border-4 border-warning">
-              <div class="text-muted small fw-bold">PENSIUN TAHUN INI (&le; 6 BULAN)</div>
-              <div class="h3 fw-bold text-warning mb-0" id="statWarning">0</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card card-stat bg-white shadow-sm p-3 border-start border-4 border-success">
-              <div class="text-muted small fw-bold">BELUM PENSIUN / AMAN</div>
-              <div class="h3 fw-bold text-success mb-0" id="statAman">0</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Filter Panel & Tombol Export Excel -->
-        <div class="card shadow-sm border-0 mb-4">
-          <div class="card-body">
-            <div class="row g-2 align-items-center">
-              <div class="col-md-3">
-                <div class="input-group">
-                  <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
-                  <input type="text" id="filterSearch" class="form-control" placeholder="Cari NIP, Nama, Unit Kerja..." onkeyup="applyFilter()">
-                </div>
-              </div>
-              <div class="col-md-2">
-                <select id="filterJenisPegawai" class="form-select" onchange="applyFilter()">
-                  <option value="ALL">-- Semua Jenis --</option>
-                  <option value="PPPK">PPPK</option>
-                  <option value="PPPK Paruh Waktu">PPPK Paruh Waktu</option>
-                  <option value="PNS">PNS</option>
-                </select>
-              </div>
-              <div class="col-md-2">
-                <select id="filterStatusSk" class="form-select" onchange="applyFilter()">
-                  <option value="ALL">-- Status SK --</option>
-                  <option value="BELUM">Belum SK</option>
-                  <option value="SUDAH">Sudah SK</option>
-                </select>
-              </div>
-              <div class="col-md-2">
-                <input type="month" id="filterTmtMonth" class="form-control" onchange="applyFilter()" title="Filter Bulan TMT Pensiun">
-              </div>
-              <div class="col-md-1">
-                <button class="btn btn-outline-secondary w-100" onclick="resetFilter()" title="Reset Filter">
-                  <i class="bi bi-arrow-counterclockwise"></i>
-                </button>
-              </div>
-              <!-- Tombol Download Excel -->
-              <div class="col-md-2 text-end">
-                <button class="btn btn-success w-100 fw-bold" onclick="exportToExcel()">
-                  <i class="bi bi-file-earmark-excel-fill me-1"></i> Export Excel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Data Table -->
-        <div class="card shadow-sm border-0">
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-hover align-middle mb-0" id="tablePegawai">
-                <thead class="table-light">
-                  <tr>
-                    <th>NIP</th>
-                    <th>Nama Pegawai</th>
-                    <th>Perangkat Daerah</th>
-                    <th>Jabatan</th>
-                    <th>Jenis Pegawai</th>
-                    <th>TMT Awal</th>
-                    <th>TMT Pensiun</th>
-                    <th>Masa Kerja</th>
-                    <th>Status SK</th>
-                    <th class="text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyPegawai">
-                  <!-- Generated by JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- SUB-SECTION: KELOLA USER ADMIN -->
-      <div id="sectionUser" class="d-none">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="card shadow-sm border-0">
-              <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h6 class="fw-bold mb-0"><i class="bi bi-people me-1"></i> Daftar Administrator</h6>
-                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalUser">
-                  <i class="bi bi-plus-circle me-1"></i> Tambah Admin
-                </button>
-              </div>
-              <ul class="list-group list-group-flush" id="listUserAdmin">
-                <!-- Generated by JS -->
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
 
-  <!-- MODAL: PROSES & CETAK SK (PDF) -->
-  <div class="modal fade" id="modalSK" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg">
+  <!-- SECTION DASHBOARD MAIN -->
+  <div id="mainDashboard" class="d-none">
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand font-weight-bold" href="#">
+          <i class="bi bi-file-earmark-text me-2"></i>Layanan SK Pegawai
+        </a>
+        <div class="d-flex align-items-center">
+          <span class="text-white me-3"><i class="bi bi-person-circle me-1"></i><span id="userDisplay">Admin</span></span>
+          <button class="btn btn-outline-light btn-sm" onclick="handleLogout()">
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+      <!-- HEADER & DAFTAR PEGAWAI -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="m-0 font-weight-bold text-primary"><i class="bi bi-people me-2"></i>Daftar Pegawai</h5>
+          <button class="btn btn-success btn-sm" onclick="loadPegawaiData()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh Data
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>NIP</th>
+                  <th>Nama</th>
+                  <th>Jabatan</th>
+                  <th>Jenis Pegawai</th>
+                  <th>Tgl Lahir</th>
+                  <th>TMT Awal</th>
+                  <th>TMT Pensiun</th>
+                  <th>Masa Kerja</th>
+                  <th class="text-center">Status SK</th>
+                  <th class="text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="pegawaiTbody">
+                <tr>
+                  <td colspan="11" class="text-center py-4">Memuat data pegawai...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORM TAMBAH USER (ADMIN) -->
+      <div class="card shadow-sm mb-5">
+        <div class="card-header bg-white py-3">
+          <h6 class="m-0 font-weight-bold text-secondary"><i class="bi bi-person-plus me-2"></i>Tambah Pengguna Aplikasi</h6>
+        </div>
+        <div class="card-body">
+          <form id="addUserForm" class="row g-3">
+            <div class="col-md-5">
+              <input type="text" class="form-control" id="newUsername" placeholder="Username Baru" required>
+            </div>
+            <div class="col-md-5">
+              <input type="password" class="form-control" id="newPassword" placeholder="Password Baru" required>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-secondary w-100">Tambah User</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GENERATE SK -->
+  <div class="modal fade" id="skModal" tabindex="-1" aria-labelledby="skModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
         <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title fw-bold"><i class="bi bi-printer-fill me-2"></i> Form Menerbitkan SK</h5>
+          <h5 class="modal-title" id="skModalLabel"><i class="bi bi-file-earmark-pdf me-2"></i>Form Generate SK</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        
-        <div class="modal-body p-4">
-          <div class="alert alert-light border mb-4">
-            <div class="row g-2 small">
-              <div class="col-md-6"><strong>NIP:</strong> <span id="skNip">-</span></div>
-              <div class="col-md-6"><strong>Nama:</strong> <span id="skNama">-</span></div>
-              <div class="col-md-6"><strong>Jabatan:</strong> <span id="skJabatan">-</span></div>
-              <div class="col-md-6"><strong>Unit Kerja:</strong> <span id="skPerangkatDaerah">-</span></div>
-              <div class="col-md-6"><strong>Jenis Pegawai:</strong> <span id="skJenisPegawai" class="badge bg-secondary">-</span></div>
-              <div class="col-md-6"><strong>TMT Pensiun Sistem:</strong> <span id="skTmtPensiun" class="fw-bold text-primary">-</span></div>
-            </div>
-          </div>
+        <form id="generateSkForm">
+          <div class="modal-body">
+            <!-- HIDDEN FIELD TANGGAL LAHIR -->
+            <input type="hidden" id="modalTanggalLahir" name="modalTanggalLahir">
 
-          <form id="formSK" onsubmit="event.preventDefault(); submitGenerateSK();">
             <div class="row g-3">
-              
               <div class="col-md-6">
-                <label class="form-label fw-bold">Format Template SK</label>
-                <select id="skJenisPegawaiKey" class="form-select">
-                  <option value="PPPK">PPPK (Penuh Waktu)</option>
-                  <option value="PPPK_PARUH_WAKTU">PPPK Paruh Waktu</option>
-                  <option value="PNS">PNS</option>
-                </select>
+                <label for="modalNip" class="form-label">NIP</label>
+                <input type="text" class="form-control" id="modalNip" readonly>
               </div>
-
               <div class="col-md-6">
-                <label class="form-label fw-bold">Jenis Pemberhentian</label>
-                <select id="skJenisPemberhentian" class="form-select" onchange="onJenisPemberhentianChange()">
-                  <option value="BUP">Batas Usia Pensiun (BUP)</option>
-                  <option value="HMPK">Habis Masa Perjanjian Kerja (HMPK)</option>
+                <label for="modalNama" class="form-label">Nama Pegawai</label>
+                <input type="text" class="form-control" id="modalNama" readonly>
+              </div>
+              <div class="col-md-6">
+                <label for="modalJabatan" class="form-label">Jabatan</label>
+                <input type="text" class="form-control" id="modalJabatan" readonly>
+              </div>
+              <div class="col-md-6">
+                <label for="modalPerangkatDaerah" class="form-label">Perangkat Daerah</label>
+                <input type="text" class="form-control" id="modalPerangkatDaerah" readonly>
+              </div>
+              <div class="col-md-6">
+                <label for="modalJenisPegawai" class="form-label">Jenis Pegawai</label>
+                <input type="text" class="form-control" id="modalJenisPegawai" readonly>
+              </div>
+              <div class="col-md-6">
+                <label for="modalJenisPemberhentian" class="form-label">Jenis Pemberhentian SK</label>
+                <select class="form-select" id="modalJenisPemberhentian" required>
+                  <option value="BUP" selected>BUP (Batas Usia Pensiun)</option>
+                  <option value="HMPK">HMPK (Habis Masa Perjanjian Kerja)</option>
+                  <option value="APS">APS (Atas Permintaan Sendiri)</option>
                   <option value="MENINGGAL">Meninggal Dunia</option>
-                  <option value="APS">Atas Permintaan Sendiri (APS)</option>
                   <option value="DISIPLIN">Hukuman Disiplin</option>
                 </select>
               </div>
-
               <div class="col-md-6">
-                <label class="form-label fw-bold">Nomor SK</label>
-                <input type="text" id="skNomor" class="form-control" placeholder="Contoh: 800.1.3/001/2026" required>
+                <label for="modalNomorSk" class="form-label">Nomor SK</label>
+                <input type="text" class="form-control" id="modalNomorSk" placeholder="Contoh: 800/123/2026" required>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-bold">Tanggal Penetapan SK</label>
-                <input type="date" id="skTanggal" class="form-control" required>
+                <label for="modalTanggalSk" class="form-label">Tanggal SK</label>
+                <input type="date" class="form-control" id="modalTanggalSk" required>
               </div>
-
               <div class="col-md-6">
-                <label class="form-label fw-bold">TMT Berhenti / Pensiun</label>
-                <input type="date" id="skTmtBerhenti" class="form-control" required>
-              </div>
-
-              <div class="col-md-3">
-                <label class="form-label fw-bold">Masa Kerja (Thn)</label>
-                <input type="number" id="skMasaKerjaTahun" class="form-control" min="0" required>
+                <label for="modalTmtPensiun" class="form-label">TMT Berhenti / Pensiun</label>
+                <input type="date" class="form-control" id="modalTmtPensiun" required>
               </div>
               <div class="col-md-3">
-                <label class="form-label fw-bold">Masa Kerja (Bln)</label>
-                <input type="number" id="skMasaKerjaBulan" class="form-control" min="0" max="11" required>
+                <label for="modalMasaKerjaTahun" class="form-label">Masa Kerja (Thn)</label>
+                <input type="number" class="form-control" id="modalMasaKerjaTahun" required>
               </div>
-
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Nomor Pertek BKN</label>
-                <input type="text" id="skNomorPertek" class="form-control" placeholder="Isi nomor persetujuan teknis">
-              </div>
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Tanggal Pertek BKN</label>
-                <input type="date" id="skTanggalPertek" class="form-control">
-              </div>
-
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Gaji Pokok Terakhir (Rp)</label>
-                <input type="number" id="skGajiPokok" class="form-control" placeholder="Contoh: 3500000">
+              <div class="col-md-3">
+                <label for="modalMasaKerjaBulan" class="form-label">Masa Kerja (Bln)</label>
+                <input type="number" class="form-control" id="modalMasaKerjaBulan" required>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-bold">Alamat Terakhir Pegawai</label>
-                <input type="text" id="skAlamat" class="form-control" placeholder="Alamat lengkap">
+                <label for="modalNomorPertek" class="form-label">Nomor Pertek BKN</label>
+                <input type="text" class="form-control" id="modalNomorPertek" placeholder="-">
               </div>
-
-              <div id="dynamicFields" class="row g-3 mt-1"></div>
-
+              <div class="col-md-6">
+                <label for="modalTanggalPertek" class="form-label">Tanggal Pertek BKN</label>
+                <input type="date" class="form-control" id="modalTanggalPertek">
+              </div>
+              <div class="col-md-6">
+                <label for="modalGajiPokok" class="form-label">Gaji Pokok Terakhir</label>
+                <input type="number" class="form-control" id="modalGajiPokok" placeholder="0">
+              </div>
+              <div class="col-md-6">
+                <label for="modalAlamat" class="form-label">Alamat Pegawai</label>
+                <input type="text" class="form-control" id="modalAlamat" placeholder="-">
+              </div>
             </div>
-
-            <div class="mt-4 text-end border-top pt-3">
-              <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Batal</button>
-              <button type="submit" id="btnSubmitSK" class="btn btn-primary fw-bold">
-                <i class="bi bi-printer-fill me-1"></i> Terbitkan SK (PDF)
-              </button>
-            </div>
-          </form>
-        </div>
-
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-printer me-1"></i>Generate & Download PDF</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: TAMBAH ADMIN -->
-  <div class="modal fade" id="modalUser" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">Tambah Admin Baru</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body p-4">
-          <form id="formTambahUser" onsubmit="event.preventDefault(); submitTambahUser();">
-            <div class="mb-3">
-              <label class="form-label fw-bold">Username</label>
-              <input type="text" id="newUsername" class="form-control" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label fw-bold">Password</label>
-              <input type="password" id="newPassword" class="form-control" required>
-            </div>
-            <div class="text-end mt-4">
-              <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Batal</button>
-              <button type="submit" class="btn btn-primary fw-bold">Simpan Admin</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SheetJS Library untuk Download Excel Client-Side -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- JS Bootstrap 5 Bundle -->
+  <!-- Bootstrap 5 JS Bundle dengan Popper -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Main App Script -->
+  <!-- Main Script App -->
   <script src="app.js"></script>
 </body>
 </html>
