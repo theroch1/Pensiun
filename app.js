@@ -1,13 +1,13 @@
 // =============================================================================
 // KONFIGURASI WEB APP URL
 // =============================================================================
-// Ganti URL di bawah ini dengan URL Web App Deployment Apps Script Anda!
 const API_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec";
 
 // Global Variables
 let currentToken = localStorage.getItem("userToken") || "";
 let currentUser = localStorage.getItem("username") || "";
 let pegawaiList = [];
+let filteredPegawaiList = [];
 let selectedPegawai = null;
 
 // =============================================================================
@@ -16,7 +16,6 @@ let selectedPegawai = null;
 document.addEventListener("DOMContentLoaded", function () {
   checkAuthState();
 
-  // Form Submit Listeners
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", handleLogin);
 
@@ -28,7 +27,7 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // =============================================================================
-// LOGIC AUTENTIKASI & MANAJEMEN SESI
+// LOGIC AUTENTIKASI
 // =============================================================================
 function checkAuthState() {
   const loginSection = document.getElementById("loginSection");
@@ -39,8 +38,6 @@ function checkAuthState() {
     if (loginSection) loginSection.classList.add("d-none");
     if (mainDashboard) mainDashboard.classList.remove("d-none");
     if (userDisplay) userDisplay.innerText = currentUser;
-    
-    // Muat Data Pegawai
     loadPegawaiData();
   } else {
     if (loginSection) loginSection.classList.remove("d-none");
@@ -73,7 +70,6 @@ async function handleLogin(e) {
       currentUser = res.username;
       localStorage.setItem("userToken", res.token);
       localStorage.setItem("username", res.username);
-      
       if (alertBox) alertBox.classList.add("d-none");
       checkAuthState();
     } else {
@@ -98,13 +94,13 @@ function handleLogout() {
 }
 
 // =============================================================================
-// LOAD & RENDER DATA PEGAWAI
+// LOAD & MANAJEMEN DATA
 // =============================================================================
 async function loadPegawaiData() {
   const tbody = document.getElementById("pegawaiTbody");
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="10" class="text-center">Memuat data pegawai...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" class="text-center">Memuat data pegawai...</td></tr>';
 
   try {
     const response = await fetch(API_URL, {
@@ -119,18 +115,123 @@ async function loadPegawaiData() {
 
     if (res.status === "success") {
       pegawaiList = res.data || [];
-      renderPegawaiTable(pegawaiList);
+      
+      // Update Statistik & Dropdown Filter
+      calculateStatistics(pegawaiList);
+      populateTmtPensiunOptions(pegawaiList);
+
+      // Tampilkan awal (semua data)
+      filteredPegawaiList = [...pegawaiList];
+      renderPegawaiTable(filteredPegawaiList);
     } else {
       if (res.message && res.message.includes("Sesi")) {
         handleLogout();
       }
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">${res.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">${res.message}</td></tr>`;
     }
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Gagal memuat data: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Gagal memuat data: ${err.message}</td></tr>`;
   }
 }
 
+// =============================================================================
+// KALKULASI RINGKASAN / STATISTIK
+// =============================================================================
+function calculateStatistics(data) {
+  const totalPegawai = data.length;
+  
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  let pensiun2BulanCount = 0;
+  let pensiunTahunIniCount = 0;
+
+  data.forEach(p => {
+    if (p.tmtPensiun) {
+      const pDate = new Date(p.tmtPensiun);
+      if (!isNaN(pDate.getTime())) {
+        // Cek Pensiun Tahun Ini
+        if (pDate.getFullYear() === currentYear) {
+          pensiunTahunIniCount++;
+        }
+
+        // Cek Pensiun 2 Bulan Lagi (Rentang 0 sampai ~62 hari ke depan)
+        const diffTime = pDate - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 62) {
+          pensiun2BulanCount++;
+        }
+      }
+    }
+  });
+
+  const sisaPegawai = totalPegawai - pensiunTahunIniCount;
+
+  document.getElementById("statTotalPegawai").innerText = totalPegawai;
+  document.getElementById("statPensiun2Bulan").innerText = pensiun2BulanCount;
+  document.getElementById("statPensiunTahunIni").innerText = pensiunTahunIniCount;
+  document.getElementById("statSisaPegawai").innerText = sisaPegawai;
+}
+
+// Populate Opsi Tanggal TMT Pensiun ke Select Filter
+function populateTmtPensiunOptions(data) {
+  const select = document.getElementById("filterTmtPensiun");
+  if (!select) return;
+
+  // Dapatkan daftar TMT Pensiun unik
+  const dates = [...new Set(data.map(p => p.tmtPensiun).filter(d => d))];
+  dates.sort();
+
+  select.innerHTML = '<option value="">-- Semua Tanggal Pensiun --</option>';
+  dates.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.innerText = formatDateIndoStr(d);
+    select.appendChild(opt);
+  });
+}
+
+// =============================================================================
+// LOGIK FILTERING DATA PEGAWAI
+// =============================================================================
+function applyFilters() {
+  const searchText = document.getElementById("filterSearch").value.toLowerCase().trim();
+  const selectedTmt = document.getElementById("filterTmtPensiun").value;
+  const selectedStatus = document.getElementById("filterStatusSk").value;
+
+  filteredPegawaiList = pegawaiList.filter(p => {
+    // 1. Filter Pencarian NIP / Nama
+    const matchSearch = !searchText || 
+      (p.nip && p.nip.toLowerCase().includes(searchText)) || 
+      (p.nama && p.nama.toLowerCase().includes(searchText));
+
+    // 2. Filter TMT Pensiun
+    const matchTmt = !selectedTmt || p.tmtPensiun === selectedTmt;
+
+    // 3. Filter Status SK
+    const hasSk = p.skPdfUrl && p.skPdfUrl.trim() !== "";
+    let matchStatus = true;
+    if (selectedStatus === "SUDAH") matchStatus = hasSk;
+    if (selectedStatus === "BELUM") matchStatus = !hasSk;
+
+    return matchSearch && matchTmt && matchStatus;
+  });
+
+  renderPegawaiTable(filteredPegawaiList);
+}
+
+function resetFilters() {
+  document.getElementById("filterSearch").value = "";
+  document.getElementById("filterTmtPensiun").value = "";
+  document.getElementById("filterStatusSk").value = "";
+  
+  filteredPegawaiList = [...pegawaiList];
+  renderPegawaiTable(filteredPegawaiList);
+}
+
+// =============================================================================
+// RENDER TABEL PEGAWAI
+// =============================================================================
 function renderPegawaiTable(data) {
   const tbody = document.getElementById("pegawaiTbody");
   if (!tbody) return;
@@ -138,15 +239,13 @@ function renderPegawaiTable(data) {
   tbody.innerHTML = "";
 
   if (data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Tidak ada data pegawai.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">Tidak ada data pegawai yang sesuai dengan filter.</td></tr>';
     return;
   }
 
   data.forEach((p, index) => {
-    // Format Tanggal Lahir (Mencoba key tanggalLahir atau tglLahir)
     const tglLahirVal = p.tanggalLahir || p.tglLahir || "-";
     
-    // Status SK: Jika skPdfUrl ada nilainya, maka "Sudah SK", jika kosong "Belum SK"
     let statusSkBadge = "";
     if (p.skPdfUrl && p.skPdfUrl.trim() !== "") {
       statusSkBadge = `<span class="badge bg-success">Sudah SK</span> 
@@ -168,7 +267,7 @@ function renderPegawaiTable(data) {
       <td>${p.masaKerjaTahun || 0} Thn ${p.masaKerjaBulan || 0} Bln</td>
       <td class="text-center">${statusSkBadge}</td>
       <td class="text-center">
-        <button class="btn btn-sm btn-primary" onclick="openGenerateModal(${index})">
+        <button class="btn btn-sm btn-primary" onclick="openGenerateModalByNip('${p.nip}')">
           Generate SK
         </button>
       </td>
@@ -178,13 +277,12 @@ function renderPegawaiTable(data) {
 }
 
 // =============================================================================
-// GENERATE SK & MODAL HANDLER
+// MODAL & GENERATE SK
 // =============================================================================
-function openGenerateModal(index) {
-  selectedPegawai = pegawaiList[index];
+function openGenerateModalByNip(nip) {
+  selectedPegawai = pegawaiList.find(p => String(p.nip) === String(nip));
   if (!selectedPegawai) return;
 
-  // Isi Field Form di Modal Generate SK
   document.getElementById("modalNip").value = selectedPegawai.nip || "";
   document.getElementById("modalNama").value = selectedPegawai.nama || "";
   document.getElementById("modalJabatan").value = selectedPegawai.jabatan || "";
@@ -194,13 +292,11 @@ function openGenerateModal(index) {
   document.getElementById("modalMasaKerjaTahun").value = selectedPegawai.masaKerjaTahun || "0";
   document.getElementById("modalMasaKerjaBulan").value = selectedPegawai.masaKerjaBulan || "0";
   
-  // Pastikan Tanggal Lahir Terisi ke Hidden / Input Form Modal
   const modalTglLahir = document.getElementById("modalTanggalLahir");
   if (modalTglLahir) {
     modalTglLahir.value = selectedPegawai.tanggalLahir || selectedPegawai.tglLahir || "";
   }
 
-  // Buka Modal (Bootstrap 5)
   const modalElement = document.getElementById("skModal");
   if (modalElement) {
     const modal = new bootstrap.Modal(modalElement);
@@ -220,8 +316,8 @@ async function handleGenerateSK(e) {
     perangkatDaerah: document.getElementById("modalPerangkatDaerah").value,
     jenisPegawai: document.getElementById("modalJenisPegawai").value,
     jenisPegawaiKey: document.getElementById("modalJenisPegawai").value,
-    tanggalLahir: document.getElementById("modalTanggalLahir") ? document.getElementById("modalTanggalLahir").value : (selectedPegawai.tanggalLahir || selectedPegawai.tglLahir || ""),
-    jenisPemberhentian: document.getElementById("modalJenisPemberhentian").value, // e.g., 'BUP', 'APS', dll.
+    tanggalLahir: document.getElementById("modalTanggalLahir") ? document.getElementById("modalTanggalLahir").value : "",
+    jenisPemberhentian: document.getElementById("modalJenisPemberhentian").value,
     nomorSk: document.getElementById("modalNomorSk").value,
     tanggalSk: document.getElementById("modalTanggalSk").value,
     tmtBerhenti: document.getElementById("modalTmtPensiun").value,
@@ -246,19 +342,15 @@ async function handleGenerateSK(e) {
     if (res.status === "success") {
       alert("SK Berhasil Dibuat!");
 
-      // Tutup Modal
       const modalElement = document.getElementById("skModal");
       const modal = bootstrap.Modal.getInstance(modalElement);
       if (modal) modal.hide();
 
-      // Buka Link PDF di Tab Baru
       if (res.pdfUrl) {
         window.open(res.pdfUrl, "_blank");
       }
 
-      // MUAT ULANG DATA AGAR KETERANGAN "SUDAN SK" TERUPDATE REALLTIME
       loadPegawaiData();
-
     } else {
       alert("Gagal membuat SK: " + res.message);
     }
@@ -270,7 +362,46 @@ async function handleGenerateSK(e) {
 }
 
 // =============================================================================
-// USER MANAGEMENT HANDLER
+// EXPORT DATA (KE EXCEL CSV)
+// =============================================================================
+function exportToExcel() {
+  if (filteredPegawaiList.length === 0) {
+    alert("Tidak ada data yang tersedia untuk di-export!");
+    return;
+  }
+
+  let csvContent = "data:text/csv;charset=utf-8,";
+  csvContent += "No,NIP,Nama,Jabatan,Jenis Pegawai,Tanggal Lahir,TMT Awal,TMT Pensiun,Masa Kerja,Status SK\n";
+
+  filteredPegawaiList.forEach((p, idx) => {
+    const tglLahir = p.tanggalLahir || p.tglLahir || "-";
+    const status = (p.skPdfUrl && p.skPdfUrl.trim() !== "") ? "Sudah SK" : "Belum SK";
+    const row = [
+      idx + 1,
+      `"${p.nip || ''}"`,
+      `"${p.nama || ''}"`,
+      `"${p.jabatan || ''}"`,
+      `"${p.jenisPegawai || ''}"`,
+      `"${tglLahir}"`,
+      `"${p.tmtAwal || ''}"`,
+      `"${p.tmtPensiun || ''}"`,
+      `"${p.masaKerjaTahun || 0} Thn ${p.masaKerjaBulan || 0} Bln"`,
+      `"${status}"`
+    ];
+    csvContent += row.join(",") + "\n";
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `Data_Pegawai_Filtered_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// =============================================================================
+// USER MANAGEMENT & UTILITIES
 // =============================================================================
 async function handleAddUser(e) {
   e.preventDefault();
@@ -300,15 +431,11 @@ async function handleAddUser(e) {
   }
 }
 
-// =============================================================================
-// HELPER FORMATTING & UI UTILITIES
-// =============================================================================
 function formatDateIndoStr(dateStr) {
   if (!dateStr || dateStr === "-") return "-";
   try {
     const dt = new Date(dateStr);
     if (isNaN(dt.getTime())) return dateStr;
-    
     const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
     return `${dt.getDate()} ${bulan[dt.getMonth()]} ${dt.getFullYear()}`;
   } catch (e) {
@@ -319,7 +446,6 @@ function formatDateIndoStr(dateStr) {
 function showLoading(isLoading, text = "Memproses...") {
   const overlay = document.getElementById("loadingOverlay");
   const loadingText = document.getElementById("loadingText");
-  
   if (!overlay) return;
 
   if (isLoading) {
