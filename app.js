@@ -10,16 +10,20 @@ let currentToken = localStorage.getItem("app_token") || "";
 // INITIALIZATION
 // =============================================================================
 document.addEventListener("DOMContentLoaded", () => {
-  checkAuthStatus();
+  try {
+    checkAuthStatus();
 
-  const loginForm = document.getElementById("loginForm");
-  if (loginForm) loginForm.addEventListener("submit", handleLoginSubmit);
+    const loginForm = document.getElementById("loginForm");
+    if (loginForm) loginForm.addEventListener("submit", handleLoginSubmit);
 
-  const skForm = document.getElementById("generateSkForm");
-  if (skForm) skForm.addEventListener("submit", handleGenerateSkSubmit);
+    const skForm = document.getElementById("generateSkForm");
+    if (skForm) skForm.addEventListener("submit", handleGenerateSkSubmit);
 
-  const addUserForm = document.getElementById("addUserForm");
-  if (addUserForm) addUserForm.addEventListener("submit", handleAddUserSubmit);
+    const addUserForm = document.getElementById("addUserForm");
+    if (addUserForm) addUserForm.addEventListener("submit", handleAddUserSubmit);
+  } catch (err) {
+    console.error("Init Error:", err);
+  }
 });
 
 // =============================================================================
@@ -58,22 +62,33 @@ async function handleLoginSubmit(e) {
       })
     });
 
-    const result = await response.json();
+    const textResult = await response.text();
+    let result;
+    try {
+      result = JSON.parse(textResult);
+    } catch (parseErr) {
+      throw new Error("Respon server bukan format JSON yang valid: " + textResult);
+    }
 
-    if (result.status === "success") {
+    if (result && result.status === "success") {
       currentToken = result.token;
       localStorage.setItem("app_token", result.token);
-      document.getElementById("userDisplay").textContent = result.username || "Admin";
+      
+      const userDisplay = document.getElementById("userDisplay");
+      if (userDisplay) userDisplay.textContent = result.username || "Admin";
+      
       checkAuthStatus();
     } else {
+      const msg = result ? result.message : "Login gagal!";
       if (alertBox) {
-        alertBox.textContent = result.message || "Login gagal!";
+        alertBox.textContent = msg;
         alertBox.classList.remove("d-none");
       } else {
-        alert(result.message || "Login gagal!");
+        alert(msg);
       }
     }
   } catch (err) {
+    console.error("Login Error:", err);
     if (alertBox) {
       alertBox.textContent = "Gagal terhubung ke server: " + err.message;
       alertBox.classList.remove("d-none");
@@ -108,7 +123,13 @@ async function loadPegawaiData() {
       })
     });
 
-    const result = await response.json();
+    const textResult = await response.text();
+    let result;
+    try {
+      result = JSON.parse(textResult);
+    } catch (e) {
+      throw new Error("Respon getPegawai bukan JSON: " + textResult);
+    }
 
     if (result.status === "success") {
       globalPegawaiList = Array.isArray(result.data) ? result.data : [];
@@ -148,7 +169,6 @@ function updateStatistics(data) {
         if (dtPensiun.getFullYear() === currentYear) {
           pensiunTahunIni++;
         }
-        // Cek selisih 2 bulan ke depan
         const diffTime = dtPensiun - now;
         const diffDays = diffTime / (1000 * 60 * 60 * 24);
         if (diffDays >= 0 && diffDays <= 60) {
@@ -158,10 +178,15 @@ function updateStatistics(data) {
     }
   });
 
-  document.getElementById("statTotalPegawai").textContent = totalPegawai;
-  document.getElementById("statPensiun2Bulan").textContent = pensiun2Bulan;
-  document.getElementById("statPensiunTahunIni").textContent = pensiunTahunIni;
-  document.getElementById("statSisaPegawai").textContent = totalPegawai - sudahSkCount;
+  const setElemText = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+
+  setElemText("statTotalPegawai", totalPegawai);
+  setElemText("statPensiun2Bulan", pensiun2Bulan);
+  setElemText("statPensiunTahunIni", pensiunTahunIni);
+  setElemText("statSisaPegawai", totalPegawai - sudahSkCount);
 }
 
 function renderPegawaiTable(data) {
@@ -219,9 +244,13 @@ function renderPegawaiTable(data) {
 // FILTER & EXPORT
 // =============================================================================
 function applyFilters() {
-  const keyword = document.getElementById("filterSearch").value.toLowerCase();
-  const filterTmt = document.getElementById("filterTmtPensiun").value;
-  const filterStatus = document.getElementById("filterStatusSk").value;
+  const searchEl = document.getElementById("filterSearch");
+  const tmtEl = document.getElementById("filterTmtPensiun");
+  const statusEl = document.getElementById("filterStatusSk");
+
+  const keyword = searchEl ? searchEl.value.toLowerCase() : "";
+  const filterTmt = tmtEl ? tmtEl.value : "";
+  const filterStatus = statusEl ? statusEl.value : "";
 
   const filtered = globalPegawaiList.filter(p => {
     const matchKeyword = (p.nip && p.nip.toLowerCase().includes(keyword)) || 
@@ -241,9 +270,13 @@ function applyFilters() {
 }
 
 function resetFilters() {
-  document.getElementById("filterSearch").value = "";
-  document.getElementById("filterTmtPensiun").value = "";
-  document.getElementById("filterStatusSk").value = "";
+  const searchEl = document.getElementById("filterSearch");
+  const tmtEl = document.getElementById("filterTmtPensiun");
+  const statusEl = document.getElementById("filterStatusSk");
+
+  if (searchEl) searchEl.value = "";
+  if (tmtEl) tmtEl.value = "";
+  if (statusEl) statusEl.value = "";
   renderPegawaiTable(globalPegawaiList);
 }
 
@@ -363,7 +396,7 @@ function formatDateIndoStr(dateStr) {
 }
 
 // =============================================================================
-// MODAL & SUBMIT SK (Sinkron dengan ID skModal di HTML)
+// MODAL & SUBMIT SK
 // =============================================================================
 function openGenerateModalByNip(nip) {
   const pegawai = globalPegawaiList.find(p => String(p.nip).trim() === String(nip).trim());
