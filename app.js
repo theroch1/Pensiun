@@ -116,9 +116,8 @@ async function loadPegawaiData() {
     if (res.status === "success") {
       pegawaiList = res.data || [];
       
-      // Update Statistik & Dropdown Filter
+      // Update Statistik Ringkasan
       calculateStatistics(pegawaiList);
-      populateTmtPensiunOptions(pegawaiList);
 
       // Tampilkan awal (semua data)
       filteredPegawaiList = [...pegawaiList];
@@ -139,7 +138,6 @@ async function loadPegawaiData() {
 // =============================================================================
 function calculateStatistics(data) {
   const totalPegawai = data.length;
-  
   const now = new Date();
   const currentYear = now.getFullYear();
 
@@ -150,12 +148,10 @@ function calculateStatistics(data) {
     if (p.tmtPensiun) {
       const pDate = new Date(p.tmtPensiun);
       if (!isNaN(pDate.getTime())) {
-        // Cek Pensiun Tahun Ini
         if (pDate.getFullYear() === currentYear) {
           pensiunTahunIniCount++;
         }
 
-        // Cek Pensiun 2 Bulan Lagi (Rentang 0 sampai ~62 hari ke depan)
         const diffTime = pDate - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (diffDays >= 0 && diffDays <= 62) {
@@ -173,30 +169,12 @@ function calculateStatistics(data) {
   document.getElementById("statSisaPegawai").innerText = sisaPegawai;
 }
 
-// Populate Opsi Tanggal TMT Pensiun ke Select Filter
-function populateTmtPensiunOptions(data) {
-  const select = document.getElementById("filterTmtPensiun");
-  if (!select) return;
-
-  // Dapatkan daftar TMT Pensiun unik
-  const dates = [...new Set(data.map(p => p.tmtPensiun).filter(d => d))];
-  dates.sort();
-
-  select.innerHTML = '<option value="">-- Semua Tanggal Pensiun --</option>';
-  dates.forEach(d => {
-    const opt = document.createElement("option");
-    opt.value = d;
-    opt.innerText = formatDateIndoStr(d);
-    select.appendChild(opt);
-  });
-}
-
 // =============================================================================
-// LOGIK FILTERING DATA PEGAWAI
+// LOGIKA FILTERING DATA PEGAWAI (DENGAN INPUT BULAN/KALENDER)
 // =============================================================================
 function applyFilters() {
   const searchText = document.getElementById("filterSearch").value.toLowerCase().trim();
-  const selectedTmt = document.getElementById("filterTmtPensiun").value;
+  const selectedYearMonth = document.getElementById("filterTmtPensiun").value; // Format: "YYYY-MM"
   const selectedStatus = document.getElementById("filterStatusSk").value;
 
   filteredPegawaiList = pegawaiList.filter(p => {
@@ -205,8 +183,21 @@ function applyFilters() {
       (p.nip && p.nip.toLowerCase().includes(searchText)) || 
       (p.nama && p.nama.toLowerCase().includes(searchText));
 
-    // 2. Filter TMT Pensiun
-    const matchTmt = !selectedTmt || p.tmtPensiun === selectedTmt;
+    // 2. Filter TMT Pensiun (Mencocokkan Format YYYY-MM)
+    let matchTmt = true;
+    if (selectedYearMonth && p.tmtPensiun) {
+      const pDate = new Date(p.tmtPensiun);
+      if (!isNaN(pDate.getTime())) {
+        const pYear = pDate.getFullYear();
+        const pMonth = String(pDate.getMonth() + 1).padStart(2, '0');
+        const pYearMonth = `${pYear}-${pMonth}`;
+        matchTmt = (pYearMonth === selectedYearMonth);
+      } else {
+        matchTmt = false;
+      }
+    } else if (selectedYearMonth && !p.tmtPensiun) {
+      matchTmt = false;
+    }
 
     // 3. Filter Status SK
     const hasSk = p.skPdfUrl && p.skPdfUrl.trim() !== "";
