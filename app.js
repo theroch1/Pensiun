@@ -191,7 +191,7 @@ function renderTablePegawai(dataList) {
 
 
 // =================================================================
-// 3. MODAL PROSES SK & GENERATE
+// MODAL PROSES SK & SUBMIT WITH DYNAMIC CATEGORY
 // =================================================================
 function openModalSK(nip) {
   const pegawai = masterDataPegawai.find(p => p.nip === nip);
@@ -204,62 +204,37 @@ function openModalSK(nip) {
   document.getElementById("skJenisPegawai").innerText = pegawai.jenisPegawai;
   document.getElementById("skTmtPensiun").innerText = pegawai.tmtPensiun;
 
-  // Set Masa Kerja Otomatis
+  // Auto-Select Kategori Jenis Pegawai
+  const strJenis = (pegawai.jenisPegawai || "").toUpperCase();
+  let keyJenis = "PPPK";
+  if (strJenis.includes("PARUH WAKTU")) {
+    keyJenis = "PPPK_PARUH_WAKTU";
+  } else if (strJenis.includes("PNS")) {
+    keyJenis = "PNS";
+  }
+  
+  const selectCategory = document.getElementById("skJenisPegawaiKey");
+  if (selectCategory) {
+    selectCategory.value = keyJenis;
+  }
+
+  // Set Masa Kerja & Default TMT
   document.getElementById("skMasaKerjaTahun").value = pegawai.masaKerjaTahun || 0;
   document.getElementById("skMasaKerjaBulan").value = pegawai.masaKerjaBulan || 0;
-
-  // Set Default TMT Berhenti
-  document.getElementById("skTmtBerhenti").value = pegawai.tmtPensiun !== "-" ? pegawai.tmtPensiun : "";
+  document.getElementById("skTmtBerhenti").value = pegawai.tmtPensiunInput || "";
   document.getElementById("skJenisPemberhentian").value = "BUP";
   
   onJenisPemberhentianChange();
   modalSKInstance.show();
 }
 
-function onJenisPemberhentianChange() {
-  const jenis = document.getElementById("skJenisPemberhentian").value;
-  const container = document.getElementById("dynamicFields");
-  container.innerHTML = ""; 
-
-  if (jenis === "MENINGGAL") {
-    container.innerHTML = `
-      <div class="col-md-6">
-        <label class="form-label fw-bold text-danger">Nomor Akta Kematian</label>
-        <input type="text" id="skNoAktaKematian" class="form-control border-danger" placeholder="Contoh: 3302-KM-01012026-0001" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label fw-bold text-danger">Tanggal Akta Kematian</label>
-        <input type="date" id="skTglAktaKematian" class="form-control border-danger" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label fw-bold">Nama Ahli Waris / Janda / Duda</label>
-        <input type="text" id="skNamaAhliWaris" class="form-control" placeholder="Nama penerima hak pensiun">
-      </div>
-    `;
-  } else if (jenis === "APS") {
-    container.innerHTML = `
-      <div class="col-md-6">
-        <label class="form-label fw-bold text-primary">Tanggal Surat Pengunduran Diri</label>
-        <input type="date" id="skTglSuratAps" class="form-control border-primary" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label fw-bold">Nomor Surat Pengunduran Diri</label>
-        <input type="text" id="skNoSuratAps" class="form-control" placeholder="Isi jika ada nomor pengantar">
-      </div>
-    `;
-  } else if (jenis === "DISIPLIN") {
-    container.innerHTML = `
-      <div class="col-md-12">
-        <label class="form-label fw-bold text-warning">Alasan / Jenis Hukuman Disiplin</label>
-        <input type="text" id="skAlasanHukuman" class="form-control border-warning" placeholder="Pelanggaran disiplin..." required>
-      </div>
-    `;
-  }
-}
-
 function submitGenerateSK() {
   const btn = document.getElementById("btnSubmitSK");
   const jenis = document.getElementById("skJenisPemberhentian").value;
+  
+  // Ambil Jenis Pegawai Key dari Select / Dataset
+  const selectCategory = document.getElementById("skJenisPegawaiKey");
+  let keyJenis = selectCategory ? selectCategory.value : "PPPK";
 
   const payload = {
     action: "generateSK",
@@ -269,10 +244,10 @@ function submitGenerateSK() {
     perangkatDaerah: document.getElementById("skPerangkatDaerah").innerText,
     jabatan: document.getElementById("skJabatan").innerText,
     jenisPegawai: document.getElementById("skJenisPegawai").innerText,
+    jenisPegawaiKey: keyJenis, // Send PPPK, PPPK_PARUH_WAKTU, or PNS
     jenisPemberhentian: jenis,
     tmtBerhenti: document.getElementById("skTmtBerhenti").value,
     
-    // Masa Kerja Payload
     masaKerjaTahun: document.getElementById("skMasaKerjaTahun").value,
     masaKerjaBulan: document.getElementById("skMasaKerjaBulan").value,
 
@@ -304,7 +279,7 @@ function submitGenerateSK() {
     btn.innerHTML = `<i class="bi bi-printer-fill me-1"></i> Terbitkan SK (PDF)`;
 
     if (data.status === "success") {
-      alert("SK Berhasil Diterbitkan dan Status Spreadsheet Telah Diperbarui!");
+      alert("SK Berhasil Diterbitkan!");
       modalSKInstance.hide();
       window.open(data.pdfUrl, "_blank");
       loadDataPegawai();
@@ -318,7 +293,6 @@ function submitGenerateSK() {
     alert("Terjadi kesalahan sistem: " + err);
   });
 }
-
 
 // =================================================================
 // 4. MANAGEMENT ADMIN USER & SECTION ROUTER
