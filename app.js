@@ -1,418 +1,331 @@
-// GANTI DENGAN URL WEB APP DEPLOYMENT GOOGLE APPS SCRIPT ANDA
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec";
+// =============================================================================
+// KONFIGURASI WEB APP URL
+// =============================================================================
+// Ganti URL di bawah ini dengan URL Web App Deployment Apps Script Anda!
+const API_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec";
 
-let allPegawaiData = [];
-let filteredPegawaiData = [];
-let modalSKInstance = null;
-let modalUserInstance = null;
+// Global Variables
+let currentToken = localStorage.getItem("userToken") || "";
+let currentUser = localStorage.getItem("username") || "";
+let pegawaiList = [];
+let selectedPegawai = null;
 
-document.addEventListener("DOMContentLoaded", function() {
-  modalSKInstance = new bootstrap.Modal(document.getElementById('modalSK'));
-  modalUserInstance = new bootstrap.Modal(document.getElementById('modalUser'));
-  
-  checkSession();
+// =============================================================================
+// INISIALISASI SAAT HALAMAN DIMUAT
+// =============================================================================
+document.addEventListener("DOMContentLoaded", function () {
+  checkAuthState();
+
+  // Form Submit Listeners
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) loginForm.addEventListener("submit", handleLogin);
+
+  const generateSkForm = document.getElementById("generateSkForm");
+  if (generateSkForm) generateSkForm.addEventListener("submit", handleGenerateSK);
+
+  const addUserForm = document.getElementById("addUserForm");
+  if (addUserForm) addUserForm.addEventListener("submit", handleAddUser);
 });
 
-function checkSession() {
-  const token = sessionStorage.getItem("token");
-  const username = sessionStorage.getItem("username");
+// =============================================================================
+// LOGIC AUTENTIKASI & MANAJEMEN SESI
+// =============================================================================
+function checkAuthState() {
+  const loginSection = document.getElementById("loginSection");
+  const mainDashboard = document.getElementById("mainDashboard");
+  const userDisplay = document.getElementById("userDisplay");
 
-  if (token && username) {
-    document.getElementById("loginSection").classList.add("d-none");
-    document.getElementById("dashboardSection").classList.remove("d-none");
-    document.getElementById("userDisplay").innerText = username;
-    loadDataPegawai();
-    loadDataUsers();
+  if (currentToken) {
+    if (loginSection) loginSection.classList.add("d-none");
+    if (mainDashboard) mainDashboard.classList.remove("d-none");
+    if (userDisplay) userDisplay.innerText = currentUser;
+    
+    // Muat Data Pegawai
+    loadPegawaiData();
   } else {
-    document.getElementById("loginSection").classList.remove("d-none");
-    document.getElementById("dashboardSection").classList.add("d-none");
+    if (loginSection) loginSection.classList.remove("d-none");
+    if (mainDashboard) mainDashboard.classList.add("d-none");
   }
 }
 
-function doLogin() {
-  const u = document.getElementById("username").value;
-  const p = document.getElementById("password").value;
-  const btn = document.getElementById("btnLogin");
+async function handleLogin(e) {
+  e.preventDefault();
+  const usernameInput = document.getElementById("username").value;
+  const passwordInput = document.getElementById("password").value;
+  const alertBox = document.getElementById("loginAlert");
 
-  if (!u || !p) {
-    alert("Username dan Password wajib diisi!");
-    return;
-  }
+  showLoading(true);
 
-  btn.disabled = true;
-  btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Memeriksa...`;
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "login",
+        username: usernameInput,
+        password: passwordInput
+      })
+    });
 
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "login", username: u, password: p })
-  })
-  .then(res => res.json())
-  .then(data => {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="bi bi-box-arrow-in-right me-1"></i> Masuk`;
+    const res = await response.json();
 
-    if (data.status === "success") {
-      sessionStorage.setItem("token", data.token);
-      sessionStorage.setItem("username", data.username);
-      checkSession();
+    if (res.status === "success") {
+      currentToken = res.token;
+      currentUser = res.username;
+      localStorage.setItem("userToken", res.token);
+      localStorage.setItem("username", res.username);
+      
+      if (alertBox) alertBox.classList.add("d-none");
+      checkAuthState();
     } else {
-      alert("Login gagal: " + data.message);
+      if (alertBox) {
+        alertBox.innerText = res.message || "Login gagal!";
+        alertBox.classList.remove("d-none");
+      }
     }
-  })
-  .catch(err => {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="bi bi-box-arrow-in-right me-1"></i> Masuk`;
-    alert("Gagal terhubung ke server: " + err);
-  });
-}
-
-function doLogout() {
-  sessionStorage.clear();
-  checkSession();
-}
-
-function showSection(sec) {
-  document.getElementById("sectionPegawai").classList.add("d-none");
-  document.getElementById("sectionUser").classList.add("d-none");
-  document.getElementById("menuPegawai").classList.remove("active");
-  document.getElementById("menuUser").classList.remove("active");
-
-  if (sec === "pegawai") {
-    document.getElementById("sectionPegawai").classList.remove("d-none");
-    document.getElementById("menuPegawai").classList.add("active");
-  } else {
-    document.getElementById("sectionUser").classList.remove("d-none");
-    document.getElementById("menuUser").classList.add("active");
+  } catch (err) {
+    alert("Terjadi kesalahan koneksi saat login: " + err.message);
+  } finally {
+    showLoading(false);
   }
 }
 
-function loadDataPegawai() {
-  const tbody = document.getElementById("tbodyPegawai");
-  tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Memuat data...</td></tr>`;
-
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "getPegawai", token: sessionStorage.getItem("token") })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === "success") {
-      allPegawaiData = data.data;
-      applyFilter();
-    } else {
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger py-4">${data.message}</td></tr>`;
-    }
-  })
-  .catch(err => {
-    tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger py-4">Gagal memuat data: ${err}</td></tr>`;
-  });
+function handleLogout() {
+  localStorage.removeItem("userToken");
+  localStorage.removeItem("username");
+  currentToken = "";
+  currentUser = "";
+  checkAuthState();
 }
 
-function renderTable(data) {
-  const tbody = document.getElementById("tbodyPegawai");
+// =============================================================================
+// LOAD & RENDER DATA PEGAWAI
+// =============================================================================
+async function loadPegawaiData() {
+  const tbody = document.getElementById("pegawaiTbody");
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="10" class="text-center">Memuat data pegawai...</td></tr>';
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "getPegawai",
+        token: currentToken
+      })
+    });
+
+    const res = await response.json();
+
+    if (res.status === "success") {
+      pegawaiList = res.data || [];
+      renderPegawaiTable(pegawaiList);
+    } else {
+      if (res.message && res.message.includes("Sesi")) {
+        handleLogout();
+      }
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">${res.message}</td></tr>`;
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Gagal memuat data: ${err.message}</td></tr>`;
+  }
+}
+
+function renderPegawaiTable(data) {
+  const tbody = document.getElementById("pegawaiTbody");
+  if (!tbody) return;
+
   tbody.innerHTML = "";
 
   if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Tidak ada data ditemukan</td></tr>`;
-    updateStats([]);
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center">Tidak ada data pegawai.</td></tr>';
     return;
   }
 
-  data.forEach((item) => {
+  data.forEach((p, index) => {
+    // Format Tanggal Lahir (Mencoba key tanggalLahir atau tglLahir)
+    const tglLahirVal = p.tanggalLahir || p.tglLahir || "-";
+    
+    // Status SK: Jika skPdfUrl ada nilainya, maka "Sudah SK", jika kosong "Belum SK"
+    let statusSkBadge = "";
+    if (p.skPdfUrl && p.skPdfUrl.trim() !== "") {
+      statusSkBadge = `<span class="badge bg-success">Sudah SK</span> 
+                       <a href="${p.skPdfUrl}" target="_blank" class="btn btn-sm btn-outline-success ms-1" title="Lihat PDF"><i class="bi bi-file-pdf"></i> PDF</a>`;
+    } else {
+      statusSkBadge = `<span class="badge bg-warning text-dark">Belum SK</span>`;
+    }
+
     const tr = document.createElement("tr");
-
-    let statusBadge = item.skPdfUrl 
-      ? `<a href="${item.skPdfUrl}" target="_blank" class="badge bg-success text-decoration-none"><i class="bi bi-file-earmark-pdf"></i> Sudah SK</a>`
-      : `<span class="badge bg-secondary">Belum SK</span>`;
-
-    let btnAksi = item.skPdfUrl
-      ? `<button class="btn btn-sm btn-outline-primary" onclick="openModalSK('${item.nip}')"><i class="bi bi-pencil-square"></i> Cetak Ulang</button>`
-      : `<button class="btn btn-sm btn-primary" onclick="openModalSK('${item.nip}')"><i class="bi bi-printer"></i> Terbitkan SK</button>`;
-
     tr.innerHTML = `
-      <td><strong>${item.nip}</strong></td>
-      <td>${item.nama}</td>
-      <td>${item.perangkatDaerah}</td>
-      <td>${item.jabatan}</td>
-      <td><span class="badge bg-info text-dark">${item.jenisPegawai}</span></td>
-      <td>${item.tmtAwal || '-'}</td>
-      <td><strong class="text-primary">${item.tmtPensiun || '-'}</strong></td>
-      <td>${item.masaKerjaTahun || 0} Thn ${item.masaKerjaBulan || 0} Bln</td>
-      <td>${statusBadge}</td>
-      <td class="text-center">${btnAksi}</td>
+      <td>${index + 1}</td>
+      <td>${p.nip || "-"}</td>
+      <td><strong>${p.nama || "-"}</strong></td>
+      <td>${p.jabatan || "-"}</td>
+      <td>${p.jenisPegawai || "-"}</td>
+      <td>${formatDateIndoStr(tglLahirVal)}</td>
+      <td>${formatDateIndoStr(p.tmtAwal)}</td>
+      <td><strong>${formatDateIndoStr(p.tmtPensiun)}</strong></td>
+      <td>${p.masaKerjaTahun || 0} Thn ${p.masaKerjaBulan || 0} Bln</td>
+      <td class="text-center">${statusSkBadge}</td>
+      <td class="text-center">
+        <button class="btn btn-sm btn-primary" onclick="openGenerateModal(${index})">
+          Generate SK
+        </button>
+      </td>
     `;
     tbody.appendChild(tr);
   });
-
-  updateStats(data);
 }
 
-function applyFilter() {
-  const search = document.getElementById("filterSearch").value.toLowerCase();
-  const jenis = document.getElementById("filterJenisPegawai").value;
-  const statusSk = document.getElementById("filterStatusSk").value;
-  const tmtMonth = document.getElementById("filterTmtMonth").value;
+// =============================================================================
+// GENERATE SK & MODAL HANDLER
+// =============================================================================
+function openGenerateModal(index) {
+  selectedPegawai = pegawaiList[index];
+  if (!selectedPegawai) return;
 
-  filteredPegawaiData = allPegawaiData.filter(item => {
-    const matchSearch = (item.nip && item.nip.toLowerCase().includes(search)) ||
-                        (item.nama && item.nama.toLowerCase().includes(search)) ||
-                        (item.perangkatDaerah && item.perangkatDaerah.toLowerCase().includes(search));
-
-    const matchJenis = jenis === "ALL" || item.jenisPegawai === jenis;
-    const matchStatus = statusSk === "ALL" || 
-                        (statusSk === "SUDAH" && item.skPdfUrl) || 
-                        (statusSk === "BELUM" && !item.skPdfUrl);
-
-    let matchMonth = true;
-    if (tmtMonth && item.tmtPensiun) {
-      matchMonth = item.tmtPensiun.startsWith(tmtMonth);
-    }
-
-    return matchSearch && matchJenis && matchStatus && matchMonth;
-  });
-
-  renderTable(filteredPegawaiData);
-}
-
-function resetFilter() {
-  document.getElementById("filterSearch").value = "";
-  document.getElementById("filterJenisPegawai").value = "ALL";
-  document.getElementById("filterStatusSk").value = "ALL";
-  document.getElementById("filterTmtMonth").value = "";
-  applyFilter();
-}
-
-function updateStats(data) {
-  let kritis = 0;
-  let warning = 0;
-  let aman = 0;
-
-  const now = new Date();
-
-  data.forEach(item => {
-    if (!item.tmtPensiun) return;
-    const tmt = new Date(item.tmtPensiun);
-    const diffMonth = (tmt.getFullYear() - now.getFullYear()) * 12 + (tmt.getMonth() - now.getMonth());
-
-    if (diffMonth <= 2) {
-      kritis++;
-    } else if (diffMonth <= 6) {
-      warning++;
-    } else {
-      aman++;
-    }
-  });
-
-  document.getElementById("statTotal").innerText = data.length;
-  document.getElementById("statKritis").innerText = kritis;
-  document.getElementById("statWarning").innerText = warning;
-  document.getElementById("statAman").innerText = aman;
-}
-
-// EXPORT TO EXCEL CLIENT-SIDE
-function exportToExcel() {
-  if (!filteredPegawaiData || filteredPegawaiData.length === 0) {
-    alert("Tidak ada data untuk di-export!");
-    return;
+  // Isi Field Form di Modal Generate SK
+  document.getElementById("modalNip").value = selectedPegawai.nip || "";
+  document.getElementById("modalNama").value = selectedPegawai.nama || "";
+  document.getElementById("modalJabatan").value = selectedPegawai.jabatan || "";
+  document.getElementById("modalPerangkatDaerah").value = selectedPegawai.perangkatDaerah || "";
+  document.getElementById("modalJenisPegawai").value = selectedPegawai.jenisPegawai || "";
+  document.getElementById("modalTmtPensiun").value = selectedPegawai.tmtPensiun || "";
+  document.getElementById("modalMasaKerjaTahun").value = selectedPegawai.masaKerjaTahun || "0";
+  document.getElementById("modalMasaKerjaBulan").value = selectedPegawai.masaKerjaBulan || "0";
+  
+  // Pastikan Tanggal Lahir Terisi ke Hidden / Input Form Modal
+  const modalTglLahir = document.getElementById("modalTanggalLahir");
+  if (modalTglLahir) {
+    modalTglLahir.value = selectedPegawai.tanggalLahir || selectedPegawai.tglLahir || "";
   }
 
-  const exportList = filteredPegawaiData.map((item, index) => ({
-    "No": index + 1,
-    "NIP": item.nip,
-    "Nama": item.nama,
-    "Perangkat Daerah": item.perangkatDaerah,
-    "Jabatan": item.jabatan,
-    "Jenis Pegawai": item.jenisPegawai,
-    "TMT Awal": item.tmtAwal || "-",
-    "TMT Pensiun": item.tmtPensiun || "-",
-    "Masa Kerja Tahun": item.masaKerjaTahun || 0,
-    "Masa Kerja Bulan": item.masaKerjaBulan || 0,
-    "Status SK": item.skPdfUrl ? "Sudah SK" : "Belum SK",
-    "Link SK": item.skPdfUrl || "-"
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(exportList);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pensiun");
-
-  XLSX.writeFile(workbook, `Data_Pensiun_Pegawai_${new Date().toISOString().slice(0, 10)}.xlsx`);
-}
-
-function openModalSK(nip) {
-  const item = allPegawaiData.find(p => p.nip === nip);
-  if (!item) return;
-
-  document.getElementById("skNip").innerText = item.nip;
-  document.getElementById("skNama").innerText = item.nama;
-  document.getElementById("skJabatan").innerText = item.jabatan;
-  document.getElementById("skPerangkatDaerah").innerText = item.perangkatDaerah;
-  document.getElementById("skJenisPegawai").innerText = item.jenisPegawai;
-  document.getElementById("skTmtPensiun").innerText = item.tmtPensiun || "-";
-
-  // Auto Select Template Key (Ubah PPPK Paruh Waktu -> PPPK_PARUH_WAKTU)
-  const selKey = document.getElementById("skJenisPegawaiKey");
-  let formatKey = (item.jenisPegawai || "PPPK").toUpperCase().replace(/\s+/g, '_');
-  if (formatKey.includes("PARUH")) formatKey = "PPPK_PARUH_WAKTU";
-  selKey.value = formatKey;
-
-  document.getElementById("skTmtBerhenti").value = item.tmtPensiun || "";
-  document.getElementById("skMasaKerjaTahun").value = item.masaKerjaTahun || 0;
-  document.getElementById("skMasaKerjaBulan").value = item.masaKerjaBulan || 0;
-  
-  onJenisPemberhentianChange();
-  modalSKInstance.show();
-}
-
-function onJenisPemberhentianChange() {
-  const jenis = document.getElementById("skJenisPemberhentian").value;
-  const container = document.getElementById("dynamicFields");
-  container.innerHTML = "";
-
-  if (jenis === "MENINGGAL") {
-    container.innerHTML = `
-      <div class="col-md-4">
-        <label class="form-label fw-bold">No. Akta Kematian</label>
-        <input type="text" id="skNoAktaKematian" class="form-control" required>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label fw-bold">Tgl Akta Kematian</label>
-        <input type="date" id="skTglAktaKematian" class="form-control" required>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label fw-bold">Nama Ahli Waris / Janda / Duda</label>
-        <input type="text" id="skNamaAhliWaris" class="form-control" required>
-      </div>
-    `;
-  } else if (jenis === "APS") {
-    container.innerHTML = `
-      <div class="col-md-6">
-        <label class="form-label fw-bold">No. Surat Permohonan APS</label>
-        <input type="text" id="skNoSuratAps" class="form-control" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label fw-bold">Tgl Surat APS</label>
-        <input type="date" id="skTglSuratAps" class="form-control" required>
-      </div>
-    `;
-  } else if (jenis === "DISIPLIN") {
-    container.innerHTML = `
-      <div class="col-md-12">
-        <label class="form-label fw-bold">Alasan / Jenis Hukuman Disiplin</label>
-        <input type="text" id="skAlasanHukuman" class="form-control" required placeholder="Sebutkan tingkat & jenis pelanggaran">
-      </div>
-    `;
+  // Buka Modal (Bootstrap 5)
+  const modalElement = document.getElementById("skModal");
+  if (modalElement) {
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
   }
 }
 
-function submitGenerateSK() {
-  const btn = document.getElementById("btnSubmitSK");
-  const selectCategory = document.getElementById("skJenisPegawaiKey");
-  
-  let rawKey = selectCategory ? selectCategory.value : "PPPK";
-  let keyJenis = rawKey.trim().toUpperCase().replace(/\s+/g, '_');
+async function handleGenerateSK(e) {
+  e.preventDefault();
 
   const payload = {
     action: "generateSK",
-    token: sessionStorage.getItem("token"),
-    nip: document.getElementById("skNip").innerText,
-    nama: document.getElementById("skNama").innerText,
-    perangkatDaerah: document.getElementById("skPerangkatDaerah").innerText,
-    jabatan: document.getElementById("skJabatan").innerText,
-    jenisPegawai: document.getElementById("skJenisPegawai").innerText,
-    
-    jenisPegawaiKey: keyJenis, 
-    jenisPemberhentian: document.getElementById("skJenisPemberhentian").value,
-    
-    tmtBerhenti: document.getElementById("skTmtBerhenti").value,
-    masaKerjaTahun: document.getElementById("skMasaKerjaTahun").value,
-    masaKerjaBulan: document.getElementById("skMasaKerjaBulan").value,
-
-    nomorSk: document.getElementById("skNomor").value,
-    tanggalSk: document.getElementById("skTanggal").value,
-    gajiPokok: document.getElementById("skGajiPokok").value,
-    nomorPertek: document.getElementById("skNomorPertek").value,
-    tanggalPertek: document.getElementById("skTanggalPertek").value,
-    alamat: document.getElementById("skAlamat").value,
-    
-    noAktaKematian: document.getElementById("skNoAktaKematian") ? document.getElementById("skNoAktaKematian").value : "",
-    tglAktaKematian: document.getElementById("skTglAktaKematian") ? document.getElementById("skTglAktaKematian").value : "",
-    namaAhliWaris: document.getElementById("skNamaAhliWaris") ? document.getElementById("skNamaAhliWaris").value : "",
-    tglSuratAps: document.getElementById("skTglSuratAps") ? document.getElementById("skTglSuratAps").value : "",
-    noSuratAps: document.getElementById("skNoSuratAps") ? document.getElementById("skNoSuratAps").value : "",
-    alasanHukuman: document.getElementById("skAlasanHukuman") ? document.getElementById("skAlasanHukuman").value : ""
+    token: currentToken,
+    nip: document.getElementById("modalNip").value,
+    nama: document.getElementById("modalNama").value,
+    jabatan: document.getElementById("modalJabatan").value,
+    perangkatDaerah: document.getElementById("modalPerangkatDaerah").value,
+    jenisPegawai: document.getElementById("modalJenisPegawai").value,
+    jenisPegawaiKey: document.getElementById("modalJenisPegawai").value,
+    tanggalLahir: document.getElementById("modalTanggalLahir") ? document.getElementById("modalTanggalLahir").value : (selectedPegawai.tanggalLahir || selectedPegawai.tglLahir || ""),
+    jenisPemberhentian: document.getElementById("modalJenisPemberhentian").value, // e.g., 'BUP', 'APS', dll.
+    nomorSk: document.getElementById("modalNomorSk").value,
+    tanggalSk: document.getElementById("modalTanggalSk").value,
+    tmtBerhenti: document.getElementById("modalTmtPensiun").value,
+    masaKerjaTahun: document.getElementById("modalMasaKerjaTahun").value,
+    masaKerjaBulan: document.getElementById("modalMasaKerjaBulan").value,
+    nomorPertek: document.getElementById("modalNomorPertek") ? document.getElementById("modalNomorPertek").value : "",
+    tanggalPertek: document.getElementById("modalTanggalPertek") ? document.getElementById("modalTanggalPertek").value : "",
+    gajiPokok: document.getElementById("modalGajiPokok") ? document.getElementById("modalGajiPokok").value : "0",
+    alamat: document.getElementById("modalAlamat") ? document.getElementById("modalAlamat").value : ""
   };
 
-  btn.disabled = true;
-  btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Menerbitkan SK...`;
+  showLoading(true, "Sedang membuat Dokumen & PDF SK...");
 
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify(payload)
-  })
-  .then(res => res.json())
-  .then(data => {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="bi bi-printer-fill me-1"></i> Terbitkan SK (PDF)`;
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
 
-    if (data.status === "success") {
-      alert("SK Berhasil Diterbitkan!");
-      modalSKInstance.hide();
-      window.open(data.pdfUrl, "_blank");
-      loadDataPegawai();
+    const res = await response.json();
+
+    if (res.status === "success") {
+      alert("SK Berhasil Dibuat!");
+
+      // Tutup Modal
+      const modalElement = document.getElementById("skModal");
+      const modal = bootstrap.Modal.getInstance(modalElement);
+      if (modal) modal.hide();
+
+      // Buka Link PDF di Tab Baru
+      if (res.pdfUrl) {
+        window.open(res.pdfUrl, "_blank");
+      }
+
+      // MUAT ULANG DATA AGAR KETERANGAN "SUDAN SK" TERUPDATE REALLTIME
+      loadPegawaiData();
+
     } else {
-      alert("Gagal: " + data.message);
+      alert("Gagal membuat SK: " + res.message);
     }
-  })
-  .catch(err => {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="bi bi-printer-fill me-1"></i> Terbitkan SK (PDF)`;
-    alert("Terjadi kesalahan sistem: " + err);
-  });
+  } catch (err) {
+    alert("Terjadi kesalahan sistem: " + err.message);
+  } finally {
+    showLoading(false);
+  }
 }
 
-function loadDataUsers() {
-  const list = document.getElementById("listUserAdmin");
-  list.innerHTML = `<li class="list-group-item text-muted">Memuat user...</li>`;
+// =============================================================================
+// USER MANAGEMENT HANDLER
+// =============================================================================
+async function handleAddUser(e) {
+  e.preventDefault();
+  const usernameInput = document.getElementById("newUsername").value;
+  const passwordInput = document.getElementById("newPassword").value;
 
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "getUsers", token: sessionStorage.getItem("token") })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === "success") {
-      list.innerHTML = "";
-      data.data.forEach(u => {
-        list.innerHTML += `
-          <li class="list-group-item d-flex justify-content-between align-items-center py-3">
-            <div>
-              <strong>${u.username}</strong>
-            </div>
-            <span class="badge bg-secondary">Admin</span>
-          </li>
-        `;
-      });
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "addUser",
+        token: currentToken,
+        username: usernameInput,
+        password: passwordInput
+      })
+    });
+
+    const res = await response.json();
+    if (res.status === "success") {
+      alert("Pengguna baru berhasil ditambahkan!");
+      document.getElementById("addUserForm").reset();
+    } else {
+      alert("Gagal menambahkan pengguna: " + res.message);
     }
-  });
+  } catch (err) {
+    alert("Terjadi kesalahan: " + err.message);
+  }
 }
 
-function submitTambahUser() {
-  const u = document.getElementById("newUsername").value;
-  const p = document.getElementById("newPassword").value;
+// =============================================================================
+// HELPER FORMATTING & UI UTILITIES
+// =============================================================================
+function formatDateIndoStr(dateStr) {
+  if (!dateStr || dateStr === "-") return "-";
+  try {
+    const dt = new Date(dateStr);
+    if (isNaN(dt.getTime())) return dateStr;
+    
+    const bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
+    return `${dt.getDate()} ${bulan[dt.getMonth()]} ${dt.getFullYear()}`;
+  } catch (e) {
+    return dateStr;
+  }
+}
 
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "addUser", token: sessionStorage.getItem("token"), username: u, password: p })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === "success") {
-      alert("Admin berhasil ditambahkan!");
-      modalUserInstance.hide();
-      document.getElementById("formTambahUser").reset();
-      loadDataUsers();
-    } else {
-      alert("Gagal: " + data.message);
-    }
-  });
+function showLoading(isLoading, text = "Memproses...") {
+  const overlay = document.getElementById("loadingOverlay");
+  const loadingText = document.getElementById("loadingText");
+  
+  if (!overlay) return;
+
+  if (isLoading) {
+    if (loadingText) loadingText.innerText = text;
+    overlay.classList.remove("d-none");
+  } else {
+    overlay.classList.add("d-none");
+  }
 }
