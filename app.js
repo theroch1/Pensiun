@@ -160,7 +160,7 @@ function updateStatistics(data) {
   const now = new Date();
 
   data.forEach(p => {
-    if (p.skPdfUrl && String(p.skPdfUrl).trim() !== "") {
+    if (p.skPdfUrl && String(p.skPdfUrl).trim() !== "" && p.skPdfUrl !== "Belum Ada") {
       sudahSkCount++;
     }
     if (p.tmtPensiun && p.tmtPensiun !== "-") {
@@ -210,13 +210,15 @@ function renderPegawaiTable(data) {
     
     const tglUlangTahunBup = calculateBupBirthday(tglLahirVal, tmtPensiunVal);
 
-    let statusSkBadge = "";
-    if (p.skPdfUrl && String(p.skPdfUrl).trim() !== "") {
+   let statusSkBadge = "";
+    // Pastikan pengecekan ketat: hanya tampil jika link PDF ada dan bukan teks "Belum Ada"
+    if (p.skPdfUrl && String(p.skPdfUrl).trim() !== "" && p.skPdfUrl !== "Belum Ada") {
       statusSkBadge = `<span class="badge bg-success">Sudah SK</span> 
                        <a href="${p.skPdfUrl}" target="_blank" class="btn btn-sm btn-outline-success ms-1"><i class="bi bi-file-pdf"></i> PDF</a>`;
     } else {
-      statusSkBadge = `<span class="badge bg-warning text-dark">Belum SK</span>`;
+      statusSkBadge = `<span class="badge bg-secondary">Belum SK</span>`;
     }
+
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
