@@ -1,7 +1,7 @@
 // =============================================================================
 // KONFIGURASI WEB APP
 // =============================================================================
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwiZFnuX_ccRw0CdfGzJxxsEoxXy_UxQ_SJQBNPO1eOrfodJydUQtc3CIwUnMJjYT_J/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz4x61AJdvugWBFiS7kAOhJBZD1JKOmUjJZqfZzYbRGC-LDeeLp1c0LZLDWnnyNCduKkQ/exec";
 
 let globalPegawaiList = [];
 let currentToken = localStorage.getItem("app_token") || "";
