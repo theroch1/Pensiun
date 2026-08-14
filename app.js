@@ -393,6 +393,7 @@ function formatDateIndoStr(dateStr) {
   var dt = parseAnyDate(dateStr);
   if (!dt || isNaN(dt.getTime())) return dateStr;
 
+  let hari = String(date.getDate()).padStart(2, '0');
   var months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
   return dt.getDate() + " " + months[dt.getMonth()] + " " + dt.getFullYear();
 }
