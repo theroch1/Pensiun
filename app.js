@@ -495,4 +495,7 @@ async function handleGenerateSkSubmit(e) {
   }
 }
 
-
+function formatDuaDigitWeb(angka) {
+  let num = parseInt(angka) || 0;
+  return num < 10 ? "0" + num : String(num);
+}
