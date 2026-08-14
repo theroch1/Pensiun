@@ -392,10 +392,11 @@ function formatDateIndoStr(dateStr) {
   if (!dateStr || dateStr === "-") return "-";
   var dt = parseAnyDate(dateStr);
   if (!dt || isNaN(dt.getTime())) return dateStr;
-
-  let hari = String(date.getDate()).padStart(2, '0');
+  
   var months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-  return dt.getDate() + " " + months[dt.getMonth()] + " " + dt.getFullYear();
+  var hari = String(date.getDate()).padStart(2, '0');
+  
+  return hari + " " + months[dt.getMonth()] + " " + dt.getFullYear();
 }
 
 // =============================================================================
