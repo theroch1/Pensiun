@@ -230,7 +230,7 @@ function renderPegawaiTable(data) {
       <td>${formatDateIndoStr(tglLahirVal)}</td>
       <td class="text-primary fw-bold">${formatDateIndoStr(tglUlangTahunBup)}</td>
       <td><strong>${formatDateIndoStr(tmtPensiunVal)}</strong></td>
-      <td>${p.masaKerjaTahun || 0} Thn ${p.masaKerjaBulan || 0} Bln</td>
+      <td>${String(p.masaKerjaTahun || 0).padStart(2, '0')} Thn ${String(p.masaKerjaBulan || 0).padStart(2, '0')} Bln</td>
       <td class="text-center">${statusSkBadge}</td>
       <td class="text-center">
         <button class="btn btn-sm btn-primary" onclick="openGenerateModalByNip('${nipVal}')">
